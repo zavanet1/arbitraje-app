@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Arbitraje P2P Cripto</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap 100%, sin estilos personalizados -->
+</head>
+<body>
+<div class="container py-5">
+    <h2 class="mb-4">Arbitraje Criptomonedas P2P</h2>
+    <div class="card p-4">
+        <form id="arbitrageForm">
+            <div class="mb-3">
+                <label class="form-label">Criptomoneda</label>
+                <select class="form-select" name="asset" id="asset">
+                    {% for c in cryptos %}
+                    <option value="{{c}}">{{c}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Moneda Fiat</label>
+                <select class="form-select" name="fiat" id="fiat">
+                    <option value="USD">USD</option>
+                    <option value="ARS">ARS</option>
+                    <option value="EUR">EUR</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Método de pago</label>
+                <select class="form-select" name="payType" id="payType">
+                    <option value="">Todos</option>
+                    {% for p in payments %}
+                    <option value="{{p}}">{{p}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Importe (en moneda fiat)</label>
+                <input type="number" class="form-control" name="amount" id="amount" value="100" min="10" step="any">
+            </div>
+            <button type="submit" class="btn btn-warning">Calcular arbitraje</button>
+        </form>
+        <div class="result" id="result"></div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$('#arbitrageForm').on('submit', function(e) {
+    e.preventDefault();
+    const data = {
+        asset: $('#asset').val(),
+        fiat: $('#fiat').val(),
+        payType: $('#payType').val(),
+        amount: $('#amount').val()
+    };
+    $('#result').html('Calculando...');
+    $.ajax({
+        url: '/api/best_prices',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(res) {
+            if(res.buy_price && res.sell_price && res.gain !== null) {
+                $('#result').html(`
+                    <div>Precio de compra más bajo: <b>${res.buy_price}</b> (${res.buy_method})</div>
+                    <div>Precio de venta más alto: <b>${res.sell_price}</b> (${res.sell_method})</div>
+                    <div>Ganancia estimada: <span class="text-success fw-bold">${res.gain.toFixed(2)} ${data.fiat}</span></div>
+                `);
+            } else {
+                $('#result').html('<span class="text-danger">No se pudieron obtener precios para los parámetros seleccionados.</span>');
+            }
+        },
+        error: function() {
+            $('#result').html('<span class="text-danger">Error al consultar precios.</span>');
+        }
+    });
+});
+</script>
+</body>
+</html>
