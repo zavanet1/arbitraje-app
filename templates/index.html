@@ -10,7 +10,7 @@
 <div class="container py-5">
     <h2 class="mb-4">Arbitraje Criptomonedas P2P</h2>
     <div class="card p-4">
-        <form id="arbitrageForm">
+        <form id="arbitrageForm" onsubmit="return false;">
             <div class="mb-3">
                 <label class="form-label">Criptomoneda</label>
                 <select class="form-select" name="asset" id="asset">
@@ -22,14 +22,14 @@
             <div class="mb-3">
                 <label class="form-label">Moneda Fiat</label>
                 <select class="form-select" name="fiat" id="fiat">
-                    <option value="USD">USD</option>
-                    <option value="ARS">ARS</option>
-                    <option value="EUR">EUR</option>
+                    {% for f in fiats %}
+                    <option value="{{f}}">{{f}}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="mb-3">
                 <label class="form-label">Método de pago</label>
-                <select class="form-select" name="payType" id="payType">
+                <select class="form-select" name="pay_type" id="pay_type">
                     <option value="">Todos</option>
                     {% for p in payments %}
                     <option value="{{p}}">{{p}}</option>
@@ -40,41 +40,132 @@
                 <label class="form-label">Importe (en moneda fiat)</label>
                 <input type="number" class="form-control" name="amount" id="amount" value="100" min="10" step="any">
             </div>
-            <button type="submit" class="btn btn-warning">Calcular arbitraje</button>
+            <button id="calcular-btn" class="btn btn-warning w-100" type="button">Calcular arbitraje</button>
         </form>
-        <div class="result" id="result"></div>
+        <div style="margin-top: 2rem;"></div>
+        <div id="resultado-arbitraje" class="mt-3"></div>
     </div>
 </div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-$('#arbitrageForm').on('submit', function(e) {
-    e.preventDefault();
-    const data = {
-        asset: $('#asset').val(),
-        fiat: $('#fiat').val(),
-        payType: $('#payType').val(),
-        amount: $('#amount').val()
-    };
-    $('#result').html('Calculando...');
-    $.ajax({
-        url: '/api/best_prices',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        success: function(res) {
-            if(res.buy_price && res.sell_price && res.gain !== null) {
-                $('#result').html(`
-                    <div>Precio de compra más bajo: <b>${res.buy_price}</b> (${res.buy_method})</div>
-                    <div>Precio de venta más alto: <b>${res.sell_price}</b> (${res.sell_method})</div>
-                    <div>Ganancia estimada: <span class="text-success fw-bold">${res.gain.toFixed(2)} ${data.fiat}</span></div>
-                `);
-            } else {
-                $('#result').html('<span class="text-danger">No se pudieron obtener precios para los parámetros seleccionados.</span>');
+$(document).ready(function() {
+    // Función para obtener métodos de pago
+    function updatePaymentMethods() {
+        const asset = $('#asset').val();
+        const fiat = $('#fiat').val();
+        
+        console.log('Actualizando métodos de pago:', { asset, fiat });
+        
+        $.ajax({
+            url: '/api/payment_methods',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ asset: asset, fiat: fiat }),
+            success: function(res) {
+                const $payType = $('#pay_type');
+                $payType.empty();
+                $payType.append('<option value="">Todos</option>');
+                
+                console.log('Métodos de pago recibidos:', res.payment_methods);
+                
+                if (res.payment_methods && res.payment_methods.length > 0) {
+                    res.payment_methods.forEach(method => {
+                        $payType.append(`<option value="${method}">${method}</option>`);
+                    });
+                } else {
+                    $payType.append('<option value="">No hay métodos disponibles</option>');
+                    console.warn('No se encontraron métodos de pago');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error al obtener métodos de pago:', error);
+                const $payType = $('#pay_type');
+                $payType.empty();
+                $payType.append('<option value="">Error al cargar métodos</option>');
             }
-        },
-        error: function() {
-            $('#result').html('<span class="text-danger">Error al consultar precios.</span>');
+        });
+    }
+
+    // Actualizar métodos de pago cuando cambia la criptomoneda o moneda fiat
+    $('#asset, #fiat').on('change', function() {
+        console.log('Cambio detectado:', $(this).attr('id'));
+        updatePaymentMethods();
+    });
+
+    // Asegura que el botón funciona y no hay submit accidental
+    $('#calcular-btn').on('click', function(e) {
+        e.preventDefault();
+        // Toma los valores con los IDs correctos
+        const asset = $('#asset').val();
+        const fiat = $('#fiat').val();
+        const pay_type = $('#pay_type').val();
+        const amount = $('#amount').val();
+        if (!asset || !fiat || pay_type === "" || !amount) {
+            $('#resultado-arbitraje').html('<div class="alert alert-danger">Por favor, completa todos los campos antes de calcular.</div>');
+            return;
         }
+        $('#resultado-arbitraje').html('<div class="text-center"><div class="spinner-border text-warning" role="status"></div><div>Cargando...</div></div>');
+        $.ajax({
+            url: "/api/arbitrage",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ asset, fiat, pay_type: pay_type || null, amount }),
+            success: function(res) {
+                console.log('Resultado del arbitraje:', res);
+                
+                let html = `
+                    <div class="card shadow border-success mb-4" style="max-width:500px;margin:auto;">
+                        <div class="card-header bg-gradient bg-success text-white text-center h5">
+                            <i class="bi bi-graph-up-arrow"></i> Resultado Detallado de Arbitraje
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <span class="badge bg-primary"><i class="bi bi-cart-plus"></i> Compra</span>
+                                    <div class="fw-bold">${res.buy_price} <span class="text-muted">VES/USDT</span></div>
+                                    <div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.buy_methods) ? res.buy_methods.join(', ') : ''}</span></div>
+                                </div>
+                                <div class="col-6">
+                                    <span class="badge bg-info text-dark"><i class="bi bi-cash-coin"></i> Venta</span>
+                                    <div class="fw-bold">${res.sell_price} <span class="text-muted">VES/USDT</span></div>
+                                    <div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.sell_methods) ? res.sell_methods.join(', ') : ''}</span></div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row text-center mb-2">
+                                <div class="col-6">
+                                    <i class="bi bi-currency-exchange"></i> <b>USDT comprados:</b>
+                                    <div class="fs-6">${res.usdt_comprados?.toFixed(6)} <span class="text-muted">USDT</span></div>
+                                </div>
+                                <div class="col-6">
+                                    <h5>Método coincidente</h5>
+                                    <div><span class="badge bg-success">${res.metodo_coincidente || 'Ninguno'}</span></div>
+                                </div>
+                            </div>
+                            <div class="row mt-4 mb-2">
+                                <div class="col-6 text-center">
+                                    <div class="mb-1">Ganancia neta en USD</div>
+                                    <div class="h3 text-success">${res.ganancia_usd !== null && res.ganancia_usd !== undefined ? res.ganancia_usd.toFixed(2) + ' USD' : '-'}</div>
+                                </div>
+                                <div class="col-6 text-center border-start">
+                                    <div class="mb-1">Ganancia neta</div>
+                                    <div class="h3 text-success">${res.ganancia_neta !== undefined ? res.ganancia_neta.toFixed(2) + ' VES' : 'No se pudo calcular la ganancia'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                $('#resultado-arbitraje').html(html);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error al calcular arbitraje:', error);
+                let errorMessage = xhr.responseJSON && xhr.responseJSON.error ?
+                    xhr.responseJSON.error :
+                    'Error desconocido';
+                $('#resultado-arbitraje').html('<div class="alert alert-danger">' + errorMessage + '</div>');
+            }
+        });
     });
 });
 </script>
