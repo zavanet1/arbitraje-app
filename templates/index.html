@@ -32,7 +32,7 @@
                 <select class="form-select" name="pay_type" id="pay_type">
                     <option value="">Todos</option>
                     {% for p in payments %}
-                    <option value="{{p}}">{{p}}</option>
+                    <option value="{{ p.id }}">{{ p.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -63,18 +63,20 @@ $(document).ready(function() {
             data: JSON.stringify({ asset: asset, fiat: fiat }),
             success: function(res) {
                 const $payType = $('#pay_type');
+                // Limpiar el select
                 $payType.empty();
                 $payType.append('<option value="">Todos</option>');
-                
-                console.log('Métodos de pago recibidos:', res.payment_methods);
-                
+                // Si los métodos de pago vienen como objetos {id, name}, mostrar solo el nombre
                 if (res.payment_methods && res.payment_methods.length > 0) {
                     res.payment_methods.forEach(method => {
-                        $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                        if (typeof method === 'object' && method.name) {
+                            $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                        } else if (typeof method === 'string') {
+                            $payType.append(`<option value="${method}">${method}</option>`);
+                        }
                     });
                 } else {
                     $payType.append('<option value="">No hay métodos disponibles</option>');
-                    console.warn('No se encontraron métodos de pago');
                 }
             },
             error: function(xhr, status, error) {
@@ -100,7 +102,7 @@ $(document).ready(function() {
         const fiat = $('#fiat').val();
         const pay_type = $('#pay_type').val(); // ahora es el id
         const amount = $('#amount').val();
-        if (!asset || !fiat || pay_type === "" || !amount) {
+        if (!asset || !fiat || !amount) { // Elimina la validación de pay_type
             $('#resultado-arbitraje').html('<div class="alert alert-danger">Por favor, completa todos los campos antes de calcular.</div>');
             return;
         }
@@ -123,23 +125,29 @@ $(document).ready(function() {
                                 <div class="col-6">
                                     <span class="badge bg-primary"><i class="bi bi-cart-plus"></i> Compra</span>
                                     <div class="fw-bold"><span style='color:#d18c00;font-size:15px;'>${res.buy_nickname || ''}</span></div>
-<div class="fw-bold">${res.buy_price} <span class="text-muted">VES/USDT</span></div>
-<div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.buy_methods) ? res.buy_methods.join(', ') : ''}</span></div>
-<div class='small text-dark mt-1'>Disponible: <b>${res.buy_available || '-'}</b> USDT<br>Order Limit: <b>${res.buy_min || '-'} - ${res.buy_max || '-'}</b> VES</div>
+<div class="fw-bold">${res.buy_price} <span class="text-muted">${res.fiat}/${res.asset}</span></div>
+<div class="small d-flex flex-wrap gap-1" style="word-break: break-word; white-space: normal; overflow-wrap: anywhere;">
+    Métodos:
+    ${Array.isArray(res.buy_methods) ? res.buy_methods.map(m => `<span class='badge bg-secondary mb-1'>${m}</span>`).join(' ') : ''}
+</div>
+<div class='small text-dark mt-1'>Disponible: <b>${res.buy_available || '-'}</b> ${res.asset}<br>Order Limit: <b>${res.buy_min || '-'} - ${res.buy_max || '-'}</b> ${res.fiat}</div>
                                 </div>
                                 <div class="col-6">
                                     <span class="badge bg-info text-dark"><i class="bi bi-cash-coin"></i> Venta</span>
                                     <div class="fw-bold"><span style='color:#d18c00;font-size:15px;'>${res.sell_nickname || ''}</span></div>
-<div class="fw-bold">${res.sell_price} <span class="text-muted">VES/USDT</span></div>
-<div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.sell_methods) ? res.sell_methods.join(', ') : ''}</span></div>
-<div class='small text-dark mt-1'>Disponible: <b>${res.sell_available || '-'}</b> USDT<br>Order Limit: <b>${res.sell_min || '-'} - ${res.sell_max || '-'}</b> VES</div>
+<div class="fw-bold">${res.sell_price} <span class="text-muted">${res.fiat}/${res.asset}</span></div>
+<div class="small d-flex flex-wrap gap-1" style="word-break: break-word; white-space: normal; overflow-wrap: anywhere;">
+    Métodos:
+    ${Array.isArray(res.sell_methods) ? res.sell_methods.map(m => `<span class='badge bg-secondary mb-1'>${m}</span>`).join(' ') : ''}
+</div>
+<div class='small text-dark mt-1'>Disponible: <b>${res.sell_available || '-'}</b> ${res.asset}<br>Order Limit: <b>${res.sell_min || '-'} - ${res.sell_max || '-'}</b> ${res.fiat}</div>
                                 </div>
                             </div>
                             <hr>
                             <div class="row text-center mb-2">
                                 <div class="col-6">
                                     <i class="bi bi-currency-exchange"></i> <b>USDT comprados:</b>
-                                    <div class="fs-6">${res.usdt_comprados?.toFixed(6)} <span class="text-muted">USDT</span></div>
+                                    <div class="fs-6">${res.usdt_comprados?.toFixed(6)} <span class="text-muted">${res.asset}</span></div>
                                 </div>
                                 <div class="col-6">
                                     <h5>Método coincidente</h5>
@@ -153,7 +161,7 @@ $(document).ready(function() {
                                 </div>
                                 <div class="col-6 text-center border-start">
                                     <div class="mb-1">Ganancia neta</div>
-                                    <div class="h3 text-success">${res.ganancia_neta !== undefined ? res.ganancia_neta.toFixed(2) + ' VES' : 'No se pudo calcular la ganancia'}</div>
+                                    <div class="h3 text-success">${res.ganancia_neta !== undefined ? res.ganancia_neta.toFixed(2) + ' ' + res.fiat : 'No se pudo calcular la ganancia'}</div>
                                 </div>
                             </div>
                         </div>
@@ -161,6 +169,51 @@ $(document).ready(function() {
                 `;
                 
                 $('#resultado-arbitraje').html(html);
+
+                // Mostrar precio de venta recomendado para el USUARIO (si publica anuncio)
+                if (res.precio_venta_sugerido_usuario_min && res.precio_venta_sugerido_usuario_max &&
+                    res.ganancia_neta_sugerida_usuario_min !== null && res.ganancia_neta_sugerida_usuario_max !== null) {
+                    let recomendadoUsuario = `
+                        <div class="card border-warning shadow-sm mt-4 mb-3" style="max-width:500px;margin:auto;">
+                            <div class="card-header bg-warning text-dark text-center">
+                                <b><i class="bi bi-megaphone"></i> Tu Precio de Venta Sugerido (si publicas anuncio)</b>
+                            </div>
+                            <div class="card-body text-center">
+                                <p class="small mb-2">
+                                    Si compras <strong>${res.asset}</strong> al precio de compra mostrado (<strong>${res.buy_price.toFixed(2)} ${res.fiat}</strong>) e inviertes <strong>${res.ves_invertidos.toFixed(2)} ${res.fiat}</strong>,
+                                    y luego publicas tu propio anuncio de venta (pagando la comisión de Binance del 0.2% como vendedor):
+                                </p>
+                                <div class="mb-2">Para obtener una ganancia neta entre <b>2% y 5%</b> sobre tu inversión
+                                 (entre <b>${res.ganancia_neta_sugerida_usuario_min.toFixed(2)} y ${res.ganancia_neta_sugerida_usuario_max.toFixed(2)} ${res.fiat}</b>),
+                                 deberías publicar tu anuncio de venta a un precio entre:</div>
+                                <div class="h4 text-success">
+                                    ${res.precio_venta_sugerido_usuario_min.toFixed(2)} y ${res.precio_venta_sugerido_usuario_max.toFixed(2)} ${res.fiat} / ${res.asset}
+                                </div>
+                                <div class="small text-muted mt-2">Este rango considera que tú pagas la comisión de venta de Binance.</div>
+                            </div>
+                        </div>
+                    `;
+                    $('#resultado-arbitraje').append(recomendadoUsuario);
+                }
+
+                // Mostrar precio de compra recomendado para el USUARIO (si publica anuncio de compra)
+                if (res.precio_compra_sugerido_usuario_min && res.precio_compra_sugerido_usuario_max) {
+                    let recomendadoCompra = `
+                        <div class="card border-primary shadow-sm mt-4 mb-3" style="max-width:500px;margin:auto;">
+                            <div class="card-header bg-primary text-white text-center">
+                                <b><i class="bi bi-megaphone"></i> Tu Precio de Compra Sugerido (si publicas anuncio de compra)</b>
+                            </div>
+                            <div class="card-body text-center">
+                                <p class="small mb-2">
+                                    Si publicas tu propio anuncio de compra y logras comprar <strong>${res.asset}</strong> a un precio entre <strong>${res.precio_compra_sugerido_usuario_min.toFixed(2)} y ${res.precio_compra_sugerido_usuario_max.toFixed(2)} ${res.fiat}</strong>,
+                                    luego puedes vender al mejor precio de venta actual y obtener una ganancia neta entre <b>2% y 5%</b> sobre tu inversión (ya descontando comisiones).
+                                </p>
+                                <div class="small text-muted mt-2">Mientras más bajo logres comprar, mayor será tu ganancia neta al vender.</div>
+                            </div>
+                        </div>
+                    `;
+                    $('#resultado-arbitraje').append(recomendadoCompra);
+                }
             },
             error: function(xhr, status, error) {
                 console.error('Error al calcular arbitraje:', error);
