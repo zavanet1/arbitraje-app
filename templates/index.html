@@ -122,13 +122,17 @@ $(document).ready(function() {
                             <div class="row mb-2">
                                 <div class="col-6">
                                     <span class="badge bg-primary"><i class="bi bi-cart-plus"></i> Compra</span>
-                                    <div class="fw-bold">${res.buy_price} <span class="text-muted">VES/USDT</span></div>
-                                    <div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.buy_methods) ? res.buy_methods.join(', ') : ''}</span></div>
+                                    <div class="fw-bold"><span style='color:#d18c00;font-size:15px;'>${res.buy_nickname || ''}</span></div>
+<div class="fw-bold">${res.buy_price} <span class="text-muted">VES/USDT</span></div>
+<div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.buy_methods) ? res.buy_methods.join(', ') : ''}</span></div>
+<div class='small text-dark mt-1'>Disponible: <b>${res.buy_available || '-'}</b> USDT<br>Order Limit: <b>${res.buy_min || '-'} - ${res.buy_max || '-'}</b> VES</div>
                                 </div>
                                 <div class="col-6">
                                     <span class="badge bg-info text-dark"><i class="bi bi-cash-coin"></i> Venta</span>
-                                    <div class="fw-bold">${res.sell_price} <span class="text-muted">VES/USDT</span></div>
-                                    <div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.sell_methods) ? res.sell_methods.join(', ') : ''}</span></div>
+                                    <div class="fw-bold"><span style='color:#d18c00;font-size:15px;'>${res.sell_nickname || ''}</span></div>
+<div class="fw-bold">${res.sell_price} <span class="text-muted">VES/USDT</span></div>
+<div class="small">Métodos: <span class="badge bg-secondary">${Array.isArray(res.sell_methods) ? res.sell_methods.join(', ') : ''}</span></div>
+<div class='small text-dark mt-1'>Disponible: <b>${res.sell_available || '-'}</b> USDT<br>Order Limit: <b>${res.sell_min || '-'} - ${res.sell_max || '-'}</b> VES</div>
                                 </div>
                             </div>
                             <hr>

@@ -77,7 +77,7 @@ def get_best_prices(asset, fiat, trade_type, pay_types=None):
         anuncios = data.get('data')
         if not isinstance(anuncios, list):
             print("[ERROR] El campo 'data' no es una lista o es None")
-            return (None, None)
+            return (None, None, None)
         filtered_ads = []
         for ad in anuncios:
             adv = ad.get('adv') if ad else None
@@ -88,13 +88,19 @@ def get_best_prices(asset, fiat, trade_type, pay_types=None):
                 filtered_ads.append(ad)
         if not filtered_ads:
             print("No se encontraron anuncios para los parámetros especificados")
-            return (None, None)
+            return (None, None, None)
         sorted_ads = sorted(filtered_ads, key=lambda x: float(x['adv']['price']))
-        best_ad = sorted_ads[0]['adv'] if trade_type == 'BUY' else sorted_ads[-1]['adv']
-        best_price = float(best_ad['price'])
-        best_methods = [m.get('tradeMethodName', '') for m in best_ad.get('tradeMethods', []) if m.get('tradeMethodName', '')]
-        print(f"Mejor precio: {best_price}, Métodos: {best_methods}")
-        return (best_price, best_methods)
+        best_ad = sorted_ads[0] if trade_type == 'BUY' else sorted_ads[-1]
+        best_adv = best_ad['adv']
+        best_price = float(best_adv['price'])
+        best_methods = [m.get('tradeMethodName', '') for m in best_adv.get('tradeMethods', []) if m.get('tradeMethodName', '')]
+        best_nickname = best_ad.get('advertiser', {}).get('nickName', 'Desconocido')
+        # El campo correcto de disponible suele ser 'surplusAmount' o 'availableQuantity'.
+        best_available = best_adv.get('surplusAmount') or best_adv.get('availableQuantity') or best_adv.get('availableAmount') or '-'
+        best_min = best_adv.get('minSingleTransAmount', None)
+        best_max = best_adv.get('maxSingleTransAmount', None)
+        print(f"Mejor precio: {best_price}, Métodos: {best_methods}, Nickname: {best_nickname}, Disponible: {best_available}, Límite: {best_min}-{best_max}")
+        return (best_price, best_methods, best_nickname, best_available, best_min, best_max)
     except Exception as e:
         print(f"Error al obtener precios: {e}")
         import traceback
@@ -199,15 +205,15 @@ def calcular_arbitraje():
         print(f"[DEBUG] Resultado de venta: {sell_result}")
         print(f"[DEBUG] Tipo de resultado de venta: {type(sell_result)}")
         
-        # Validación robusta de resultados: forzar (None, None) si no es tupla válida
-        if not (isinstance(buy_result, tuple) and len(buy_result) == 2):
-            print("[ROBUSTEZ] buy_result inválido, forzando (None, None)")
-            buy_result = (None, None)
-        if not (isinstance(sell_result, tuple) and len(sell_result) == 2):
-            print("[ROBUSTEZ] sell_result inválido, forzando (None, None)")
-            sell_result = (None, None)
-        buy_price, buy_methods = buy_result
-        sell_price, sell_methods = sell_result
+        # Validación robusta de resultados: forzar (None, None, None) si no es tupla válida
+        if not (isinstance(buy_result, tuple) and len(buy_result) == 6):
+            print("[ROBUSTEZ] buy_result inválido, forzando (None, None, None, None, None, None)")
+            buy_result = (None, None, None, None, None, None)
+        if not (isinstance(sell_result, tuple) and len(sell_result) == 6):
+            print("[ROBUSTEZ] sell_result inválido, forzando (None, None, None, None, None, None)")
+            sell_result = (None, None, None, None, None, None)
+        buy_price, buy_methods, buy_nickname, buy_available, buy_min, buy_max = buy_result
+        sell_price, sell_methods, sell_nickname, sell_available, sell_min, sell_max = sell_result
         if buy_price is None or sell_price is None:
             print("[ROBUSTEZ] No se pudieron obtener precios válidos (algún precio es None)")
             return jsonify({
@@ -260,7 +266,15 @@ def calcular_arbitraje():
             'comision_compra': comision_compra,
             'comision_venta': comision_venta,
             'ganancia_neta': ganancia_neta,
-            'ganancia_usd': ganancia_usd
+            'ganancia_usd': ganancia_usd,
+            'buy_nickname': buy_nickname,
+            'sell_nickname': sell_nickname,
+            'buy_available': buy_available,
+            'buy_min': buy_min,
+            'buy_max': buy_max,
+            'sell_available': sell_available,
+            'sell_min': sell_min,
+            'sell_max': sell_max
         }
         print(f"[DEBUG] Resultado arbitraje detallado: {resultado}")
         return jsonify(resultado)
