@@ -70,7 +70,7 @@ $(document).ready(function() {
                 
                 if (res.payment_methods && res.payment_methods.length > 0) {
                     res.payment_methods.forEach(method => {
-                        $payType.append(`<option value="${method}">${method}</option>`);
+                        $payType.append(`<option value="${method.id}">${method.name}</option>`);
                     });
                 } else {
                     $payType.append('<option value="">No hay métodos disponibles</option>');
@@ -98,7 +98,7 @@ $(document).ready(function() {
         // Toma los valores con los IDs correctos
         const asset = $('#asset').val();
         const fiat = $('#fiat').val();
-        const pay_type = $('#pay_type').val();
+        const pay_type = $('#pay_type').val(); // ahora es el id
         const amount = $('#amount').val();
         if (!asset || !fiat || pay_type === "" || !amount) {
             $('#resultado-arbitraje').html('<div class="alert alert-danger">Por favor, completa todos los campos antes de calcular.</div>');

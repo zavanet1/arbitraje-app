@@ -8,6 +8,7 @@ BINANCE_P2P_URL = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
 # Supported cryptos and default payment methods
 SUPPORTED_CRYPTOS = ['USDT', 'BTC', 'ETH', 'DAI', 'BUSD', 'BNB']
 
+# Cambia get_payment_methods para devolver lista de dicts con nombre e identificador
 def get_payment_methods(asset, fiat):
     payload = {
         "asset": asset,
@@ -28,19 +29,41 @@ def get_payment_methods(asset, fiat):
         response.raise_for_status()
         data = response.json()
         print(f"Respuesta métodos de pago: {data}")
-        payment_methods = set()
+        payment_methods = {}
         for advert in data.get('data', []):
             for method in advert.get('adv', {}).get('tradeMethods', []):
                 nombre = method.get('tradeMethodName', '').strip()
-                if nombre:
-                    payment_methods.add(nombre)
-        result = sorted(list(payment_methods))
+                identificador = method.get('identifier', '').strip()
+                if nombre and identificador:
+                    payment_methods[identificador] = nombre
+        # Devuelve lista de dicts: [{"id":..., "name":...}]
+        result = [{"id": k, "name": v} for k, v in payment_methods.items()]
         print(f"Métodos de pago encontrados: {result}")
+        # Si no hay métodos, agrega también los nombres únicos encontrados (por compatibilidad)
+        if not result:
+            nombres = set()
+            for advert in data.get('data', []):
+                for method in advert.get('adv', {}).get('tradeMethods', []):
+                    nombre = method.get('tradeMethodName', '').strip()
+                    if nombre:
+                        nombres.add(nombre)
+            result = [{"id": n, "name": n} for n in nombres]
         return result
     except Exception as e:
         print(f"Error obteniendo métodos de pago: {e}")
         # Fallback genérico si la API falla
-        return ['Transferencia Bancaria', 'Pago Móvil', 'Zelle', 'PayPal', 'Binance P2P', 'Mercantil', 'Banesco', 'Cash app', 'Skrill', 'Mercadopago']
+        return [
+            {"id": "BANK_TRANSFER", "name": "Transferencia Bancaria"},
+            {"id": "PAGO_MOVIL", "name": "Pago Móvil"},
+            {"id": "ZELLE", "name": "Zelle"},
+            {"id": "PAYPAL", "name": "PayPal"},
+            {"id": "BINANCE", "name": "Binance P2P"},
+            {"id": "MERCANTIL", "name": "Mercantil"},
+            {"id": "BANESCO", "name": "Banesco"},
+            {"id": "CASH_APP", "name": "Cash app"},
+            {"id": "SKRILL", "name": "Skrill"},
+            {"id": "MERCADOPAGO", "name": "Mercadopago"}
+        ]
 
 # Función para obtener tasa de cambio (simulada, reemplazar con API real)
 def get_exchange_rate(from_currency, to_currency):
@@ -52,72 +75,100 @@ def get_exchange_rate(from_currency, to_currency):
     return rates.get((from_currency, to_currency), 1)
 
 
-def get_best_prices(asset, fiat, trade_type, pay_types=None):
-    print(f"Buscando precios: asset={asset}, fiat={fiat}, trade_type={trade_type}, pay_types={pay_types}")
-    payload = {
-        "asset": asset,
-        "fiat": fiat,
-        "merchantCheck": False,
-        "page": 1,
-        "rows": 20,
-        "tradeType": trade_type,
-        "payTypes": pay_types if isinstance(pay_types, list) else []
-    }
-    headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    try:
-        print(f"Payload: {payload}")
-        response = requests.post(BINANCE_P2P_URL, json=payload, headers=headers)
-        print(f"Código de respuesta: {response.status_code}")
-        response.raise_for_status()
-        data = response.json()
-        print(f"Respuesta recibida: {data}")
-        anuncios = data.get('data')
-        if not isinstance(anuncios, list):
-            print("[ERROR] El campo 'data' no es una lista o es None")
-            return (None, None, None)
-        filtered_ads = []
-        for ad in anuncios:
-            adv = ad.get('adv') if ad else None
-            trade_methods = adv.get('tradeMethods') if adv else None
-            if not adv or not isinstance(trade_methods, list):
+def get_best_prices(asset, fiat, trade_type, pay_types=None, amount=None):
+    print(f"Buscando precios: asset={asset}, fiat={fiat}, trade_type={trade_type}, pay_types={pay_types}, amount={amount}")
+    all_ads = []
+    for page in range(1, 16):  # 15 páginas
+        payload = {
+            "asset": asset,
+            "fiat": fiat,
+            "merchantCheck": False,
+            "page": page,
+            "rows": 20,
+            "tradeType": trade_type,
+            "payTypes": pay_types if isinstance(pay_types, list) else []
+        }
+        # Aunque se envíen minSingleTransAmount y maxSingleTransAmount, la API de Binance no filtra por rango de importe.
+        # Por eso, el filtro manual por rango de importe es necesario en el backend.
+        if amount is not None:
+            try:
+                amount_f = float(amount)
+                payload["minSingleTransAmount"] = amount_f
+                payload["maxSingleTransAmount"] = amount_f
+            except Exception as e:
+                print(f"[WARN] No se pudo convertir amount a float para el payload: {e}")
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        try:
+            print(f"Payload: {payload}")
+            response = requests.post(BINANCE_P2P_URL, json=payload, headers=headers)
+            print(f"Código de respuesta: {response.status_code}")
+            response.raise_for_status()
+            data = response.json()
+            print(f"Respuesta recibida: {data}")
+            anuncios = data.get('data')
+            if isinstance(anuncios, list):
+                all_ads.extend(anuncios)
+        except Exception as e:
+            print(f"[WARN] Error en la página {page}: {e}")
+            continue
+    if not all_ads:
+        print("[ERROR] No se obtuvieron anuncios de Binance")
+        return (None, None, None, None, None, None)
+    # FILTRO 1: SOLO anuncios que incluyan el método de pago solicitado por id
+    anuncios_filtrados = []
+    for idx, ad in enumerate(all_ads):
+        adv = ad.get('adv') if ad else None
+        trade_methods = adv.get('tradeMethods') if adv else None
+        if not adv or not isinstance(trade_methods, list):
+            print(f"[DESCARTADO][{idx}] Anuncio sin 'adv' o 'tradeMethods' inválido")
+            continue
+        if pay_types:
+            ad_method_ids = [pm.get('identifier', '').strip().upper() for pm in trade_methods if pm.get('identifier')]
+            metodo_encontrado = False
+            for user_pay in pay_types:
+                if user_pay and user_pay.strip().upper() in ad_method_ids:
+                    metodo_encontrado = True
+                    break
+            if not metodo_encontrado:
+                print(f"[DESCARTADO][{idx}] No coincide método de pago por id. User pay_types: {pay_types}, Métodos anuncio: {ad_method_ids}")
                 continue
-            if not pay_types or any(pm.get('tradeMethodName', '') in pay_types for pm in trade_methods):
-                filtered_ads.append(ad)
-        if not filtered_ads:
-            print("No se encontraron anuncios para los parámetros especificados")
-            return (None, None, None)
-        sorted_ads = sorted(filtered_ads, key=lambda x: float(x['adv']['price']))
-        best_ad = sorted_ads[0] if trade_type == 'BUY' else sorted_ads[-1]
-        best_adv = best_ad['adv']
-        best_price = float(best_adv['price'])
-        best_methods = [m.get('tradeMethodName', '') for m in best_adv.get('tradeMethods', []) if m.get('tradeMethodName', '')]
-        best_nickname = best_ad.get('advertiser', {}).get('nickName', 'Desconocido')
-        # El campo correcto de disponible suele ser 'surplusAmount' o 'availableQuantity'.
-        best_available = best_adv.get('surplusAmount') or best_adv.get('availableQuantity') or best_adv.get('availableAmount') or '-'
-        best_min = best_adv.get('minSingleTransAmount', None)
-        best_max = best_adv.get('maxSingleTransAmount', None)
-        print(f"Mejor precio: {best_price}, Métodos: {best_methods}, Nickname: {best_nickname}, Disponible: {best_available}, Límite: {best_min}-{best_max}")
-        return (best_price, best_methods, best_nickname, best_available, best_min, best_max)
-    except Exception as e:
-        print(f"Error al obtener precios: {e}")
-        import traceback
-        traceback.print_exc()
-        return (None, None)
-        price = float(best['price'])
-        # Mostrar todos los métodos disponibles en ese anuncio
-        method_names = ', '.join([m.get('tradeMethodName', '') for m in best.get('tradeMethods', [])]) or 'Sin método específico'
-        print(f"Mejor precio encontrado: {price} {fiat} ({method_names})")
-        return price, method_names
-    except requests.RequestException as e:
-        print(f"Error en la solicitud a Binance P2P: {e}")
-        return None
-    except (KeyError, ValueError, IndexError) as e:
-        print(f"Error procesando datos de Binance P2P: {e}")
-        return None
-
+        anuncios_filtrados.append(ad)
+    # FILTRO 2: SOLO anuncios cuyo amount esté dentro del rango min/max (filtro manual necesario)
+    anuncios_finales = []
+    for idx, ad in enumerate(anuncios_filtrados):
+        adv = ad.get('adv') if ad else None
+        min_amount = adv.get('minSingleTransAmount')
+        max_amount = adv.get('maxSingleTransAmount')
+        try:
+            min_amount = float(min_amount) if min_amount is not None else None
+            max_amount = float(max_amount) if max_amount is not None else None
+            if amount is not None:
+                amount_f = float(amount)
+                if (min_amount is not None and amount_f < min_amount) or (max_amount is not None and amount_f > max_amount):
+                    print(f"[DESCARTADO][{idx}] Importe fuera de rango. amount={amount_f}, min={min_amount}, max={max_amount}")
+                    continue
+        except Exception as e:
+            print(f"[WARN][{idx}] Error al convertir límites de importe: {e}")
+            continue
+        print(f"[ACEPTADO][{idx}] Anuncio válido para filtros actuales.")
+        anuncios_finales.append(ad)
+    if not anuncios_finales:
+        print("No se encontraron anuncios para los parámetros especificados y el importe dado")
+        return (None, None, None, None, None, None)
+    sorted_ads = sorted(anuncios_finales, key=lambda x: float(x['adv']['price']))
+    best_ad = sorted_ads[0] if trade_type == 'BUY' else sorted_ads[-1]
+    best_adv = best_ad['adv']
+    best_price = float(best_adv['price'])
+    best_methods = [m.get('tradeMethodName', '') for m in best_adv.get('tradeMethods', []) if m.get('tradeMethodName', '')]
+    best_nickname = best_ad.get('advertiser', {}).get('nickName', 'Desconocido')
+    best_available = best_adv.get('surplusAmount') or best_adv.get('availableQuantity') or best_adv.get('availableAmount') or '-'
+    best_min = best_adv.get('minSingleTransAmount', None)
+    best_max = best_adv.get('maxSingleTransAmount', None)
+    print(f"Mejor precio: {best_price}, Métodos: {best_methods}, Nickname: {best_nickname}, Disponible: {best_available}, Límite: {best_min}-{best_max}")
+    return (best_price, best_methods, best_nickname, best_available, best_min, best_max)
 
 @app.route('/')
 def index():
@@ -126,6 +177,7 @@ def index():
     fiats = ['USD', 'VES', 'ARS', 'EUR']
     return render_template('index.html', cryptos=cryptos, payments=payments, fiats=fiats)
 
+# Cambia api_payment_methods para devolver lista de métodos con id y nombre
 @app.route('/api/payment_methods', methods=['POST'])
 def api_payment_methods():
     data = request.json
@@ -196,12 +248,12 @@ def calcular_arbitraje():
         
         # Obtener precios de compra y venta
         print("[DEBUG] Buscando precio de compra...")
-        buy_result = get_best_prices(asset, fiat, 'BUY', pay_types)
+        buy_result = get_best_prices(asset, fiat, 'BUY', pay_types, amount)
         print(f"[DEBUG] Resultado de compra: {buy_result}")
         print(f"[DEBUG] Tipo de resultado de compra: {type(buy_result)}")
         
         print("[DEBUG] Buscando precio de venta...")
-        sell_result = get_best_prices(asset, fiat, 'SELL', pay_types)
+        sell_result = get_best_prices(asset, fiat, 'SELL', pay_types, amount)
         print(f"[DEBUG] Resultado de venta: {sell_result}")
         print(f"[DEBUG] Tipo de resultado de venta: {type(sell_result)}")
         
