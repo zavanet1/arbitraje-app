@@ -45,6 +45,52 @@
         <div style="margin-top: 2rem;"></div>
         <div id="resultado-arbitraje" class="mt-3"></div>
     </div>
+
+    <div class="card p-4 mb-4">
+        <h5 class="mb-3">Buscar anuncio de usuario específico</h5>
+        <form id="userAdForm" onsubmit="return false;">
+            <div class="row g-2">
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Nickname del usuario</label>
+                    <input type="text" class="form-control form-control-sm" id="user_nickname" placeholder="Ej: burdyn123" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Criptomoneda</label>
+                    <select class="form-select form-select-sm" id="user_asset">
+                        {% for c in cryptos %}
+                        <option value="{{c}}">{{c}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Moneda Fiat</label>
+                    <select class="form-select form-select-sm" id="user_fiat">
+                        {% for f in fiats %}
+                        <option value="{{f}}">{{f}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Tipo de anuncio</label>
+                    <select class="form-select form-select-sm" id="user_trade_type">
+                        <option value="BUY">Compra</option>
+                        <option value="SELL">Venta</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Método de pago</label>
+                    <select class="form-select form-select-sm" id="user_pay_type">
+                        <option value="">Todos</option>
+                        {% for p in payments %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary w-100 mt-3" id="buscar-usuario-btn" type="button">Buscar anuncio</button>
+        </form>
+        <div id="resultado-usuario" class="mt-3"></div>
+    </div>
 </div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
@@ -221,6 +267,118 @@ $(document).ready(function() {
                     xhr.responseJSON.error :
                     'Error desconocido';
                 $('#resultado-arbitraje').html('<div class="alert alert-danger">' + errorMessage + '</div>');
+            }
+        });
+    });
+
+    // Métodos de pago dinámicos para el formulario de usuario específico
+    function updateUserPaymentMethods() {
+        const asset = $('#user_asset').val();
+        const fiat = $('#user_fiat').val();
+        $.ajax({
+            url: '/api/payment_methods',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ asset: asset, fiat: fiat }),
+            success: function(res) {
+                const $payType = $('#user_pay_type');
+                $payType.empty();
+                $payType.append('<option value="">Todos</option>');
+                if (res.payment_methods && res.payment_methods.length > 0) {
+                    res.payment_methods.forEach(method => {
+                        if (typeof method === 'object' && method.name) {
+                            $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                        } else if (typeof method === 'string') {
+                            $payType.append(`<option value="${method}">${method}</option>`);
+                        }
+                    });
+                } else {
+                    $payType.append('<option value="">No hay métodos disponibles</option>');
+                }
+            },
+            error: function() {
+                const $payType = $('#user_pay_type');
+                $payType.empty();
+                $payType.append('<option value="">Error al cargar métodos</option>');
+            }
+        });
+    }
+    $('#user_asset, #user_fiat').on('change', updateUserPaymentMethods);
+    // Buscar anuncio de usuario específico
+    $('#buscar-usuario-btn').on('click', function() {
+        const nickname = $('#user_nickname').val();
+        const asset = $('#user_asset').val();
+        const fiat = $('#user_fiat').val();
+        const trade_type = $('#user_trade_type').val();
+        const pay_type = $('#user_pay_type').val();
+        if (!nickname || !asset || !fiat || !trade_type) {
+            $('#resultado-usuario').html('<div class="alert alert-danger">Completa todos los campos requeridos.</div>');
+            return;
+        }
+        $('#resultado-usuario').html('<div class="text-center"><div class="spinner-border text-primary" role="status"></div><div>Buscando...</div></div>');
+        $.ajax({
+            url: '/api/user_ad',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ nickname, asset, fiat, trade_type, pay_type }),
+            success: function(res) {
+                let tipoMostrar = '';
+                if (trade_type === 'BUY') {
+                    tipoMostrar = 'Compra';
+                } else if (trade_type === 'SELL') {
+                    tipoMostrar = 'Venta';
+                } else {
+                    tipoMostrar = res.trade_type;
+                }
+                let posicion = res.position !== undefined ? res.position + 1 : '-';
+                let html = '';
+                // Mostrar el anuncio encontrado primero
+                html += `<div class='card border-info shadow-sm mb-3'>
+                    <div class='card-header bg-info text-white'><b>Anuncio encontrado</b></div>
+                    <div class='card-body'>
+                        <div><b>Tipo:</b> ${tipoMostrar}</div>
+                        <div><b>Cripto:</b> ${res.asset}</div>
+                        <div><b>Fiat:</b> ${res.fiat}</div>
+                        <div><b>Precio:</b> ${res.price} ${res.fiat} / ${res.asset}</div>
+                        <div><b>Métodos:</b> ${(res.methods||[]).map(m=>`<span class='badge bg-secondary'>${m}</span>`).join(' ')}</div>
+                        <div><b>Disponible:</b> ${res.available} ${res.asset}</div>
+                        <div><b>Límite:</b> ${res.min} - ${res.max} ${res.fiat}</div>
+                        <div><b>Posición:</b> ${posicion}</div>
+                        <hr>
+                        <div class='fw-bold text-primary'>Usuario: ${res.nickname}</div>
+                    </div>
+                </div>`;
+                // Si el anuncio encontrado NO está en la posición 1, mostrar también el anuncio en la posición 1 para comparar (debajo)
+                if (posicion !== 1 && res.first_ad) {
+                    // Mostrar el tipo según el filtro seleccionado, no según el trade_type real del anuncio en posición 1
+                    let tipoMostrar1 = '';
+                    if (trade_type === 'BUY') {
+                        tipoMostrar1 = 'Compra';
+                    } else if (trade_type === 'SELL') {
+                        tipoMostrar1 = 'Venta';
+                    } else {
+                        tipoMostrar1 = res.first_ad.trade_type;
+                    }
+                    html += `<div class='card border-primary shadow-sm mb-3'>
+                        <div class='card-header bg-primary text-white'><b>Anuncio en la posición 1</b></div>
+                        <div class='card-body'>
+                            <div><b>Tipo:</b> ${tipoMostrar1}</div>
+                            <div><b>Cripto:</b> ${res.first_ad.asset}</div>
+                            <div><b>Fiat:</b> ${res.first_ad.fiat}</div>
+                            <div><b>Precio:</b> ${res.first_ad.price} ${res.first_ad.fiat} / ${res.first_ad.asset}</div>
+                            <div><b>Métodos:</b> ${(res.first_ad.methods||[]).map(m=>`<span class='badge bg-secondary'>${m}</span>`).join(' ')}</div>
+                            <div><b>Disponible:</b> ${res.first_ad.available} ${res.first_ad.asset}</div>
+                            <div><b>Límite:</b> ${res.first_ad.min} - ${res.first_ad.max} ${res.first_ad.fiat}</div>
+                            <div><b>Posición:</b> 1</div>
+                            <hr>
+                            <div class='fw-bold text-primary'>Usuario: ${res.first_ad.nickname}</div>
+                        </div>
+                    </div>`;
+                }
+                $('#resultado-usuario').html(html);
+            },
+            error: function() {
+                $('#resultado-usuario').html('<div class="alert alert-danger">Error al buscar el anuncio del usuario.</div>');
             }
         });
     });
