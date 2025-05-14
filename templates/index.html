@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Arbitraje P2P Cripto</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .resultados-flex {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        @media (min-width: 768px) {
+            .resultados-flex {
+                flex-direction: row;
+                gap: 2rem;
+                align-items: flex-start;
+                justify-content: center;
+            }
+        }
+        .resultado-card {
+            flex: 1 1 350px;
+            min-width: 340px;
+            max-width: 500px;
+            min-height: 260px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px 0 rgba(0,0,0,0.1), 0 1.5px 4px 0 rgba(0,0,0,0.05);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin: 0 1rem;
+        }
+        .resultado-card.usuario {
+            border: 2px solid #2196f3;
+            background: linear-gradient(135deg, #e3f2fd 80%, #fff 100%);
+        }
+        .resultado-card.global {
+            border: 2px solid #43a047;
+            background: linear-gradient(135deg, #e8f5e9 80%, #fff 100%);
+        }
+        .resultado-card .header {
+            font-size: 1.18rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: 0.5px;
+            border-bottom: 1.5px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+        }
+        .resultado-card .fw-bold {
+            font-size: 1.08rem;
+        }
+        .resultado-card .badge {
+            font-size: 0.97em;
+        }
+        .resultado-card .info-row {
+            margin-bottom: 0.4rem;
+        }
+    </style>
+    <!-- Bootstrap 100%, sin estilos personalizados -->
+</head>
+<body>
+<div class="container py-5">
+    <h2 class="mb-4">Arbitraje Criptomonedas P2P</h2>
+    <div class="card p-4">
+        <form id="arbitrageForm" onsubmit="return false;">
+            <div class="mb-3">
+                <label class="form-label">Criptomoneda</label>
+                <select class="form-select" name="asset" id="asset">
+                    {% for c in cryptos %}
+                    <option value="{{c}}">{{c}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Moneda Fiat</label>
+                <select class="form-select" name="fiat" id="fiat">
+                    {% for f in fiats %}
+                    <option value="{{f}}">{{f}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Método de pago</label>
+                <select class="form-select" name="pay_type" id="pay_type">
+                    <option value="">Todos</option>
+                    {% for p in payments %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Importe (en moneda fiat)</label>
+                <input type="number" class="form-control" name="amount" id="amount" value="100" min="10" step="any">
+            </div>
+            <div class="d-flex justify-content-center">
+                <button id="calcular-btn" class="btn btn-warning btn-sm" type="button">Calcular arbitraje</button>
+            </div>
+        </form>
+        <div style="margin-top: 2rem;"></div>
+        <div id="resultado-arbitraje" class="mt-3"></div>
+    </div>
+
+    <div class="card p-4 mt-5">
+        <h4 class="mb-3">Buscar anuncio de usuario específico</h4>
+        <form id="buscarUsuarioForm" onsubmit="return false;">
+            <div class="row g-2">
+                <div class="col-12 col-md-6 col-lg-4 mb-2">
+                    <label class="form-label">Usuario (nickname exacto)</label>
+                    <input type="text" class="form-control form-control-sm" name="nickname" id="nickname" placeholder="Ej: JuanPerez123" required>
+                </div>
+                <div class="col-6 col-md-3 col-lg-2 mb-2">
+                    <label class="form-label">Criptomoneda</label>
+                    <select class="form-select form-select-sm" name="asset_usuario" id="asset_usuario">
+                        {% for c in cryptos %}
+                        <option value="{{c}}">{{c}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3 col-lg-2 mb-2">
+                    <label class="form-label">Moneda Fiat</label>
+                    <select class="form-select form-select-sm" name="fiat_usuario" id="fiat_usuario">
+                        {% for f in fiats %}
+                        <option value="{{f}}">{{f}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3 col-lg-2 mb-2">
+                    <label class="form-label">Tipo de anuncio</label>
+                    <select class="form-select form-select-sm" name="trade_type_usuario" id="trade_type_usuario">
+                        <option value="BUY">Compra</option>
+                        <option value="SELL">Venta</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3 col-lg-2 mb-2">
+                    <label class="form-label">Método de pago</label>
+                    <select class="form-select form-select-sm" name="pay_type_usuario" id="pay_type_usuario_usuario">
+                        <option value="">Todos</option>
+                        {% for p in payments %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12 d-flex justify-content-center">
+                    <button id="buscar-usuario-btn" class="btn btn-primary btn-sm" type="button">Buscar anuncio</button>
+                </div>
+            </div>
+        </form>
+        <div id="resultado-usuario" class="mt-3"></div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Función para obtener métodos de pago
+    function updatePaymentMethods() {
+        const asset = $('#asset').val();
+        const fiat = $('#fiat').val();
+        
+        console.log('Actualizando métodos de pago:', { asset, fiat });
+        
+        $.ajax({
+            url: '/api/payment_methods',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ asset: asset, fiat: fiat }),
+            success: function(res) {
+                const $payType = $('#pay_type');
+                // Limpiar el select
+                $payType.empty();
+                $payType.append('<option value="">Todos</option>');
+                // Si los métodos de pago vienen como objetos {id, name}, mostrar solo el nombre
+                if (res.payment_methods && res.payment_methods.length > 0) {
+                    res.payment_methods.forEach(method => {
+                        if (typeof method === 'object' && method.name) {
+                            $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                        } else if (typeof method === 'string') {
+                            $payType.append(`<option value="${method}">${method}</option>`);
+                        }
+                    });
+                } else {
+                    $payType.append('<option value="">No hay métodos disponibles</option>');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error al obtener métodos de pago:', error);
+                const $payType = $('#pay_type');
+                $payType.empty();
+                $payType.append('<option value="">Error al cargar métodos</option>');
+            }
+        });
+    }
+
+    // Actualizar métodos de pago cuando cambia la criptomoneda o moneda fiat
+    $('#asset, #fiat').on('change', function() {
+        console.log('Cambio detectado:', $(this).attr('id'));
+        updatePaymentMethods();
+    });
+
+    // Asegura que el botón funciona y no hay submit accidental
+    $('#calcular-btn').on('click', function(e) {
+        e.preventDefault();
+        // Toma los valores con los IDs correctos
+        const asset = $('#asset').val();
+        const fiat = $('#fiat').val();
+        const pay_type = $('#pay_type').val(); // ahora es el id
+        const amount = $('#amount').val();
+        if (!asset || !fiat || !amount) { // Elimina la validación de pay_type
+            $('#resultado-arbitraje').html('<div class="alert alert-danger">Por favor, completa todos los campos antes de calcular.</div>');
+            return;
+        }
+        $('#resultado-arbitraje').html('<div class="text-center"><div class="spinner-border text-warning" role="status"></div><div>Cargando...</div></div>');
+        $.ajax({
+            url: "/api/arbitrage",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ asset, fiat, pay_type: pay_type || null, amount }),
+            success: function(res) {
+                console.log('Resultado del arbitraje:', res);
+                
+                let html = `
+                    <div class="card shadow border-success mb-4" style="max-width:500px;margin:auto;">
+                        <div class="card-header bg-gradient bg-success text-white text-center h5">
+                            <i class="bi bi-graph-up-arrow"></i> Resultado Detallado de Arbitraje
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <span class="badge bg-primary"><i class="bi bi-cart-plus"></i> Compra</span>
+                                    <div class="fw-bold"><span style='color:#d18c00;font-size:15px;'>${res.buy_nickname || ''}</span></div>
+<div class="fw-bold">${res.buy_price} <span class="text-muted">${res.fiat}/${res.asset}</span></div>
+<div class="small d-flex flex-wrap gap-1" style="word-break: break-word; white-space: normal; overflow-wrap: anywhere;">
+    Métodos:
+    ${Array.isArray(res.buy_methods) ? res.buy_methods.map(m => `<span class='badge bg-secondary mb-1'>${m}</span>`).join(' ') : ''}
+</div>
+<div class='small text-dark mt-1'>Disponible: <b>${res.buy_available || '-'}</b> ${res.asset}<br>Order Limit: <b>${res.buy_min || '-'} - ${res.buy_max || '-'}</b> ${res.fiat}</div>
+                                </div>
+                                <div class="col-6">
+                                    <span class="badge bg-info text-dark"><i class="bi bi-cash-coin"></i> Venta</span>
+                                    <div class="fw-bold"><span style='color:#d18c00;font-size:15px;'>${res.sell_nickname || ''}</span></div>
+<div class="fw-bold">${res.sell_price} <span class="text-muted">${res.fiat}/${res.asset}</span></div>
+<div class="small d-flex flex-wrap gap-1" style="word-break: break-word; white-space: normal; overflow-wrap: anywhere;">
+    Métodos:
+    ${Array.isArray(res.sell_methods) ? res.sell_methods.map(m => `<span class='badge bg-secondary mb-1'>${m}</span>`).join(' ') : ''}
+</div>
+<div class='small text-dark mt-1'>Disponible: <b>${res.sell_available || '-'}</b> ${res.asset}<br>Order Limit: <b>${res.sell_min || '-'} - ${res.sell_max || '-'}</b> ${res.fiat}</div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row text-center mb-2">
+                                <div class="col-6">
+                                    <i class="bi bi-currency-exchange"></i> <b>USDT comprados:</b>
+                                    <div class="fs-6">${res.usdt_comprados?.toFixed(6)} <span class="text-muted">${res.asset}</span></div>
+                                </div>
+                                <div class="col-6">
+                                    <h5>Método coincidente</h5>
+                                    <div><span class="badge bg-success">${res.metodo_coincidente || 'Ninguno'}</span></div>
+                                </div>
+                            </div>
+                            <div class="row mt-4 mb-2">
+                                <div class="col-6 text-center">
+                                    <div class="mb-1">Ganancia neta en USD</div>
+                                    <div class="h3 text-success">${res.ganancia_usd !== null && res.ganancia_usd !== undefined ? res.ganancia_usd.toFixed(2) + ' USD' : '-'}</div>
+                                </div>
+                                <div class="col-6 text-center border-start">
+                                    <div class="mb-1">Ganancia neta</div>
+                                    <div class="h3 text-success">${res.ganancia_neta !== undefined ? res.ganancia_neta.toFixed(2) + ' ' + res.fiat : 'No se pudo calcular la ganancia'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                $('#resultado-arbitraje').html(html);
+
+                // Mostrar precio de venta recomendado para el USUARIO (si publica anuncio)
+                if (res.precio_venta_sugerido_usuario_min && res.precio_venta_sugerido_usuario_max &&
+                    res.ganancia_neta_sugerida_usuario_min !== null && res.ganancia_neta_sugerida_usuario_max !== null) {
+                    let recomendadoUsuario = `
+                        <div class="card border-warning shadow-sm mt-4 mb-3" style="max-width:500px;margin:auto;">
+                            <div class="card-header bg-warning text-dark text-center">
+                                <b><i class="bi bi-megaphone"></i> Tu Precio de Venta Sugerido (si publicas anuncio de venta)</b>
+                            </div>
+                            <div class="card-body text-center">
+                                <p class="small mb-2">
+                                    Si compras <strong>${res.asset}</strong> al precio de compra mostrado (<strong>${res.buy_price.toFixed(2)} ${res.fiat}</strong>) e inviertes <strong>${res.ves_invertidos.toFixed(2)} ${res.fiat}</strong>,
+                                    y luego publicas tu propio anuncio de venta (pagando la comisión de Binance del 0.2% como vendedor):
+                                </p>
+                                <div class="mb-2">Para obtener una ganancia neta entre <b>2% y 5%</b> sobre tu inversión
+                                 (entre <b>${res.ganancia_neta_sugerida_usuario_min.toFixed(2)} y ${res.ganancia_neta_sugerida_usuario_max.toFixed(2)} ${res.fiat}</b>),
+                                 deberías publicar tu anuncio de venta a un precio entre:</div>
+                                <div class="h4 text-success">
+                                    ${res.precio_venta_sugerido_usuario_min.toFixed(2)} y ${res.precio_venta_sugerido_usuario_max.toFixed(2)} ${res.fiat} / ${res.asset}
+                                </div>
+                                <div class="small text-muted mt-2">Este rango considera que tú pagas la comisión de venta de Binance.</div>
+                            </div>
+                        </div>
+                    `;
+                    $('#resultado-arbitraje').append(recomendadoUsuario);
+                }
+
+                // Mostrar precio de compra recomendado para el USUARIO (si publica anuncio de compra)
+                if (res.precio_compra_sugerido_usuario_min && res.precio_compra_sugerido_usuario_max) {
+                    let recomendadoCompra = `
+                        <div class="card border-primary shadow-sm mt-4 mb-3" style="max-width:500px;margin:auto;">
+                            <div class="card-header bg-primary text-white text-center">
+                                <b><i class="bi bi-megaphone"></i> Tu Precio de Compra Sugerido (si publicas anuncio de compra)</b>
+                            </div>
+                            <div class="card-body text-center">
+                                <p class="small mb-2">
+                                    Si publicas tu propio anuncio de compra y logras comprar <strong>${res.asset}</strong> a un precio entre <strong>${res.precio_compra_sugerido_usuario_min.toFixed(2)} y ${res.precio_compra_sugerido_usuario_max.toFixed(2)} ${res.fiat}</strong>,
+                                    luego puedes vender al mejor precio de venta actual y obtener una ganancia neta entre <b>2% y 5%</b> sobre tu inversión (ya descontando comisiones).
+                                </p>
+                                <div class="small text-muted mt-2">Mientras más bajo logres comprar, mayor será tu ganancia neta al vender.</div>
+                            </div>
+                        </div>
+                    `;
+                    $('#resultado-arbitraje').append(recomendadoCompra);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error al calcular arbitraje:', error);
+                let errorMessage = xhr.responseJSON && xhr.responseJSON.error ?
+                    xhr.responseJSON.error :
+                    'Error desconocido';
+                $('#resultado-arbitraje').html('<div class="alert alert-danger">' + errorMessage + '</div>');
+            }
+        });
+    });
+
+    // Buscar anuncios de usuario específico
+    $('#buscar-usuario-btn').on('click', function(e) {
+        buscarUsuario();
+    });
+
+    let intervalId = null;
+
+    function buscarUsuario() {
+        const nickname = $('#nickname').val();
+        const asset = $('#asset_usuario').val();
+        const fiat = $('#fiat_usuario').val();
+        const trade_type = $('#trade_type_usuario').val();
+        const pay_type = $('#pay_type_usuario_usuario').val();
+        
+        if (!nickname || !asset || !fiat || !trade_type) {
+            $('#resultado-usuario').html('<div class="alert alert-danger">Por favor, completa todos los campos requeridos.</div>');
+            return;
+        }
+        
+        $('#resultado-usuario').html('<div class="text-center"><div class="spinner-border text-primary" role="status"></div><div>Buscando...</div></div>');
+        
+        $.ajax({
+            url: "/api/buscar_usuario",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ nickname, asset, fiat, trade_type, pay_type: pay_type || null }),
+            success: function(res) {
+                let html = '';
+                // Primero mostrar los anuncios del usuario buscado
+                if (res.anuncios && res.anuncios.length > 0) {
+                    html += `<div class='resultados-flex align-items-stretch'>`;
+                    res.anuncios.forEach(function(ad) {
+                        // Calcular diferencia de precio respecto al top global
+                        let diff = '';
+                        if (res.anuncio_top && ad.price && res.anuncio_top.price) {
+                            let diffVal = (parseFloat(ad.price) - parseFloat(res.anuncio_top.price)).toFixed(2);
+                            let diffPct = ((diffVal / parseFloat(res.anuncio_top.price)) * 100).toFixed(2);
+                            diff = `<div class='info-row'><b>Diferencia vs top:</b> <span class='badge bg-${diffVal > 0 ? 'danger' : 'success'}'>${diffVal} (${diffPct}%)</span></div>`;
+                        }
+                        html += `<div class='resultado-card global mb-4 h-100 d-flex flex-column justify-content-between'>
+                            <div>
+                                <div class='header text-success'>Posición encontrada: <span class='badge bg-success'>${ad.posicion}</span></div>
+                                <div class='info-row'><b>Usuario:</b> ${ad.nickname}</div>
+                                <div class='info-row'><b>Precio:</b> <span class='text-success'>${ad.price} ${ad.fiat} / ${ad.asset}</span></div>
+                                ${diff}
+                                <div class='info-row'><b>Métodos:</b> ${(ad.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m}</span>`).join(' ')}</div>
+                                <div class='info-row'><b>Disponible:</b> ${ad.available} ${ad.asset}</div>
+                                <div class='info-row'><b>Límite:</b> ${ad.min} - ${ad.max} ${ad.fiat}</div>
+                            </div>
+                        </div>`;
+                    });
+                    // Luego el anuncio top global (ahora con color azul)
+                    if (res.anuncio_top) {
+                        html += `<div class='resultado-card usuario mb-4 h-100 d-flex flex-column justify-content-between'>
+                            <div>
+                                <div class='header text-primary'>Anuncio en posición 1 global</div>
+                                <div class='info-row'><b>Posición:</b> <span class='badge bg-info text-dark'>1</span></div>
+                                <div class='info-row'><b>Usuario:</b> ${res.anuncio_top.nickname}</div>
+                                <div class='info-row'><b>Precio:</b> <span class='text-success'>${res.anuncio_top.price} ${res.anuncio_top.fiat} / ${res.anuncio_top.asset}</span></div>
+                                <div class='info-row'><b>Métodos:</b> ${(res.anuncio_top.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m}</span>`).join(' ')}</div>
+                                <div class='info-row'><b>Disponible:</b> ${res.anuncio_top.available} ${res.anuncio_top.asset}</div>
+                                <div class='info-row'><b>Límite:</b> ${res.anuncio_top.min} - ${res.anuncio_top.max} ${res.anuncio_top.fiat}</div>
+                            </div>
+                        </div>`;
+                    }
+                    html += `</div>`;
+                } else {
+                    html += `<div class='resultado-card global mb-0 d-flex align-items-center justify-content-center text-muted' style='min-height:260px;'>No se encontraron anuncios para ese usuario.</div>`;
+                    if (res.anuncio_top) {
+                        html += `<div class='resultado-card usuario mb-4 mt-4'>
+                            <div class='header text-primary'>Anuncio en posición 1 global</div>
+                            <div class='info-row'><b>Posición:</b> <span class='badge bg-info text-dark'>1</span></div>
+                            <div class='info-row'><b>Usuario:</b> ${res.anuncio_top.nickname}</div>
+                            <div class='info-row'><b>Precio:</b> <span class='text-success'>${res.anuncio_top.price} ${res.anuncio_top.fiat} / ${res.anuncio_top.asset}</span></div>
+                            <div class='info-row'><b>Métodos:</b> ${(res.anuncio_top.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m}</span>`).join(' ')}</div>
+                            <div class='info-row'><b>Disponible:</b> ${res.anuncio_top.available} ${res.anuncio_top.asset}</div>
+                            <div class='info-row'><b>Límite:</b> ${res.anuncio_top.min} - ${res.anuncio_top.max} ${res.anuncio_top.fiat}</div>
+                        </div>`;
+                    }
+                }
+                $('#resultado-usuario').html(html);
+            },
+            error: function(xhr, status, error) {
+                $('#resultado-usuario').html('<div class="alert alert-danger">Error al buscar anuncios: ' + (xhr.responseJSON?.error || error) + '</div>');
+            }
+        });
+    }
+
+    // Agregar botones de control de actualización automática
+    $('#buscarUsuarioForm').append(`
+        <div class="row mt-3">
+            <div class="col-12 d-flex justify-content-center gap-2">
+                <button id="auto-refresh-btn" class="btn btn-success btn-sm" type="button">
+                    <i class="bi bi-arrow-clockwise"></i> Actualización Auto (15s)
+                </button>
+                <button id="stop-refresh-btn" class="btn btn-danger btn-sm" type="button" disabled>
+                    <i class="bi bi-stop-circle"></i> Detener
+                </button>
+            </div>
+        </div>
+    `);
+
+    // Manejar la actualización automática
+    $('#auto-refresh-btn').on('click', function() {
+        $(this).prop('disabled', true);
+        $('#stop-refresh-btn').prop('disabled', false);
+        buscarUsuario(); // Primera búsqueda inmediata
+        intervalId = setInterval(buscarUsuario, 15000); // Luego cada 15 segundos
+    });
+
+    $('#stop-refresh-btn').on('click', function() {
+        $(this).prop('disabled', true);
+        $('#auto-refresh-btn').prop('disabled', false);
+        if (intervalId !== null) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
+    });
+
+// Función para obtener métodos de pago en el formulario de usuario
+function updatePaymentMethodsUsuario() {
+    const asset = $('#asset_usuario').val();
+    const fiat = $('#fiat_usuario').val();
+    $.ajax({
+        url: '/api/payment_methods',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ asset: asset, fiat: fiat }),
+        success: function(res) {
+            const $payType = $('#pay_type_usuario_usuario');
+            $payType.empty();
+            $payType.append('<option value="">Todos</option>');
+            if (res.payment_methods && res.payment_methods.length > 0) {
+                res.payment_methods.forEach(method => {
+                    if (typeof method === 'object' && method.name) {
+                        $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                    } else if (typeof method === 'string') {
+                        $payType.append(`<option value="${method}">${method}</option>`);
+                    }
+                });
+            } else {
+                $payType.append('<option value="">No hay métodos disponibles</option>');
+            }
+        },
+        error: function() {
+            const $payType = $('#pay_type_usuario_usuario');
+            $payType.empty();
+            $payType.append('<option value="">Error al cargar métodos</option>');
+        }
+    });
+}
+
+// Actualizar métodos de pago en el formulario de usuario cuando cambia la criptomoneda o moneda fiat
+$('#asset_usuario, #fiat_usuario').on('change', updatePaymentMethodsUsuario);
+});
+</script>
+</body>
+</html>
