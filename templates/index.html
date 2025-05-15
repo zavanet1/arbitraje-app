@@ -427,7 +427,6 @@
                             </div>
                             <div class="d-flex justify-content-center">
                                 <button id="add-btn" class="btn btn-primary btn-sm" type="button">Agregar</button>
-                                <button id="clear-btn" class="btn btn-danger btn-sm" type="button">Borrar Todo</button>
                             </div>
                         </form>
 
@@ -448,6 +447,12 @@
                                 <!-- Rows will be added here dynamically -->
                             </tbody>
                         </table>
+                        <div class="d-flex justify-content-center mt-3 gap-2">
+                            <button id="export-excel-btn" class="btn btn-success btn-sm" type="button">
+                                <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                            </button>
+                            <button id="clear-btn" class="btn btn-danger btn-sm" type="button">Borrar Todo</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -462,6 +467,72 @@
     <script>
     // Opciones de métodos de pago para selects independientes en la tabla
     window.paymentsOptions = `<option value="">Todos</option>{% for p in payments %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}`;
+
+    // --- FUNCIONES DINÁMICAS PARA TODOS LOS FORMULARIOS ---
+    function updatePaymentMethodsGeneric(assetSelector, fiatSelector, payTypeSelector) {
+        const asset = $(assetSelector).val();
+        const fiat = $(fiatSelector).val();
+        const $payType = $(payTypeSelector);
+        $payType.empty();
+        $payType.append('<option>Cargando...</option>');
+        if (!asset || !fiat) {
+            $payType.empty();
+            $payType.append('<option value="">Seleccione cripto y fiat</option>');
+            $payType.prop('disabled', true);
+            return;
+        }
+        $payType.prop('disabled', true);
+        $.ajax({
+            url: '/api/payment_methods',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ asset: asset, fiat: fiat }),
+            success: function(res) {
+                $payType.empty();
+                $payType.append('<option value="">Todos</option>');
+                if (res.payment_methods && res.payment_methods.length > 0) {
+                    res.payment_methods.forEach(method => {
+                        if (typeof method === 'object' && method.name) {
+                            $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                        } else if (typeof method === 'string') {
+                            $payType.append(`<option value="${method}">${method}</option>`);
+                        }
+                    });
+                } else {
+                    $payType.append('<option value="">No hay métodos disponibles</option>');
+                }
+                $payType.prop('disabled', false);
+            },
+            error: function() {
+                $payType.empty();
+                $payType.append('<option value="">Error al cargar métodos</option>');
+                $payType.prop('disabled', false);
+            }
+        });
+    }
+
+    // --- FORMULARIO PRINCIPAL ---
+    $('#asset, #fiat').on('change', function() {
+        updatePaymentMethodsGeneric('#asset', '#fiat', '#pay_type');
+    });
+    // Inicializar al cargar
+    $(function() {
+        if ($('#asset').val() && $('#fiat').val()) {
+            updatePaymentMethodsGeneric('#asset', '#fiat', '#pay_type');
+        }
+    });
+
+    // --- FORMULARIO USUARIO ESPECÍFICO ---
+    $('#asset_usuario, #fiat_usuario').on('change', function() {
+        updatePaymentMethodsGeneric('#asset_usuario', '#fiat_usuario', '#pay_type_usuario_usuario');
+    });
+    // Inicializar al cargar
+    $(function() {
+        if ($('#asset_usuario').val() && $('#fiat_usuario').val()) {
+            updatePaymentMethodsGeneric('#asset_usuario', '#fiat_usuario', '#pay_type_usuario_usuario');
+        }
+    });
+
     $(document).ready(function() {
         // Función para obtener métodos de pago
         function updatePaymentMethods() {
@@ -776,261 +847,168 @@
             }
         });
 
-// Función para obtener métodos de pago en el formulario de usuario
-function updatePaymentMethodsUsuario() {
-    const asset = $('#asset_usuario').val();
-    const fiat = $('#fiat_usuario').val();
-    $.ajax({
-        url: '/api/payment_methods',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({ asset: asset, fiat: fiat }),
-        success: function(res) {
-            const $payType = $('#pay_type_usuario_usuario');
-            $payType.empty();
-            $payType.append('<option value="">Todos</option>');
-            if (res.payment_methods && res.payment_methods.length > 0) {
-                res.payment_methods.forEach(method => {
-                    if (typeof method === 'object' && method.name) {
-                        $payType.append(`<option value="${method.id}">${method.name}</option>`);
-                    } else if (typeof method === 'string') {
-                        $payType.append(`<option value="${method}">${method}</option>`);
-                    }
-                });
-            } else {
-                $payType.append('<option value="">No hay métodos disponibles</option>');
-            }
-        },
-        error: function() {
-            const $payType = $('#pay_type_usuario_usuario');
-            $payType.empty();
-            $payType.append('<option value="">Error al cargar métodos</option>');
-        }
-    });
-}
+        document.getElementById('add-btn').addEventListener('click', function() {
+            const crypto = document.getElementById('crypto_trans').value;
+            const fiat = document.getElementById('fiat_trans').value;
+            const paymentMethod = document.getElementById('payment-method-trans').value;
+            const buyAmount = parseFloat(document.getElementById('buy-amount').value) || 0;
+            const sellAmount = parseFloat(document.getElementById('sell-amount').value) || 0;
+            const commission = parseFloat(document.getElementById('commission').value) || 0;
 
-// Agregar delay para esperar cambios en los select del formulario de usuario
-let assetUsuarioTimeout = null;
-let fiatUsuarioTimeout = null;
-        
-$('#asset_usuario, #fiat_usuario').on('change', function() {
-    const id = $(this).attr('id');
-    console.log('Cambio detectado en formulario usuario:', id);
-            
-    // Limpiar timeout anterior si existe
-    if (id === 'asset_usuario' && assetUsuarioTimeout) {
-        clearTimeout(assetUsuarioTimeout);
-    } else if (id === 'fiat_usuario' && fiatUsuarioTimeout) {
-        clearTimeout(fiatUsuarioTimeout);
-    }
-            
-    // Establecer nuevo timeout
-    if (id === 'asset_usuario') {
-        assetUsuarioTimeout = setTimeout(updatePaymentMethodsUsuario, 500);
-    } else {
-        fiatUsuarioTimeout = setTimeout(updatePaymentMethodsUsuario, 500);
-    }
-});
-
-// Función para obtener métodos de pago en el formulario de transacciones (abajo)
-function updateTransactionPaymentMethods() {
-    const $crypto = $('#crypto_trans');
-    const $fiat = $('#fiat_trans');
-    const crypto = $crypto.val();
-    const fiat = $fiat.val();
-    const $paymentMethod = $('#payment-method-trans');
-    console.log('[DEBUG] updateTransactionPaymentMethods - crypto:', crypto, 'fiat:', fiat);
-    if (!crypto || !fiat) {
-        $paymentMethod.empty();
-        $paymentMethod.append('<option value="">Seleccione cripto y fiat</option>');
-        $paymentMethod.prop('disabled', true);
-        return;
-    }
-    $paymentMethod.prop('disabled', true);
-    $.ajax({
-        url: '/api/payment_methods',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({ asset: crypto, fiat: fiat }),
-        success: function(res) {
-            $paymentMethod.empty();
-            $paymentMethod.append('<option value="">Todos</option>');
-            if (res.payment_methods && res.payment_methods.length > 0) {
-                res.payment_methods.forEach(method => {
-                    if (typeof method === 'object' && method.name) {
-                        $paymentMethod.append(`<option value="${method.id}">${method.name}</option>`);
-                    } else if (typeof method === 'string') {
-                        $paymentMethod.append(`<option value="${method}">${method}</option>`);
-                    }
-                });
-            } else {
-                $paymentMethod.append('<option value="">No hay métodos disponibles</option>');
-            }
-            $paymentMethod.prop('disabled', false);
-        },
-        error: function() {
-            $paymentMethod.empty();
-            $paymentMethod.append('<option value="">Error al cargar métodos</option>');
-            $paymentMethod.prop('disabled', false);
-        }
-    });
-}
-
-// Conectar eventos de cambio SOLO a los selects del formulario de transacciones
-$('#crypto_trans, #fiat_trans').off('change').on('change', updateTransactionPaymentMethods);
-
-// Al cargar la página, forzar la actualización inicial solo si ambos selects tienen valor
-$(function() {
-    if ($('#crypto_trans').val() && $('#fiat_trans').val()) {
-        updateTransactionPaymentMethods();
-    }
-});
-
-document.getElementById('add-btn').addEventListener('click', function() {
-    const crypto = document.getElementById('crypto_trans').value;
-    const fiat = document.getElementById('fiat_trans').value;
-    const paymentMethod = document.getElementById('payment-method-trans').value;
-    const buyAmount = parseFloat(document.getElementById('buy-amount').value) || 0;
-    const sellAmount = parseFloat(document.getElementById('sell-amount').value) || 0;
-    const commission = parseFloat(document.getElementById('commission').value) || 0;
-
-    // Ganancia bruta
-    const grossProfit = sellAmount - buyAmount;
-    // Ganancia neta descontando comisión proporcional
-    const netProfit = grossProfit - commission;
-    // Porcentaje de comisión sobre la ganancia bruta
-    let commissionPct = grossProfit !== 0 ? (commission / grossProfit) * 100 : 0;
-
-    const table = document.getElementById('transaction-table').getElementsByTagName('tbody')[0];
-    const newRow = table.insertRow();
-
-    newRow.innerHTML = `
-        <td contenteditable="false">${crypto}</td>
-        <td contenteditable="false">${fiat}</td>
-        <td contenteditable="false">${paymentMethod}</td>
-        <td contenteditable="false">${buyAmount.toFixed(2)}</td>
-        <td contenteditable="false">${sellAmount.toFixed(2)}</td>
-        <td contenteditable="false">${commission.toFixed(2)}<br><span class='text-muted' style='font-size:0.8em;'>(${commissionPct.toFixed(2)}%)</span></td>
-        <td contenteditable="false">${netProfit.toFixed(2)}</td>
-        <td>
-            <button class="edit-btn btn btn-sm btn-warning">Editar</button>
-            <button class="delete-btn btn btn-sm btn-danger">Borrar</button>
-        </td>
-    `;
-
-    // Generar un id único para el select de método de pago en la fila
-    let rowId = Math.floor(Math.random() * 1000000);
-
-    newRow.querySelector('.edit-btn').addEventListener('click', function() {
-        const cells = newRow.querySelectorAll('td');
-        const isEditable = cells[0].contentEditable === "true";
-        const cryptoCell = cells[0];
-        const fiatCell = cells[1];
-        const paymentMethodCell = cells[2];
-        const buyAmountCell = cells[3];
-        const sellAmountCell = cells[4];
-        const commissionCell = cells[5];
-        const profitCell = cells[6];
-
-        if (!isEditable) {
-            // Guardar valores actuales
-            let currentCrypto = cryptoCell.textContent.trim();
-            let currentFiat = fiatCell.textContent.trim();
-            let currentPayment = paymentMethodCell.textContent.trim();
-            let selectId = `payment-method-trans${rowId}`;
-
-            // Renderizar selects
-            cryptoCell.innerHTML = `<select class='form-select form-select-sm' style='min-width:80px;'>${document.getElementById('crypto_trans').innerHTML}</select>`;
-            fiatCell.innerHTML = `<select class='form-select form-select-sm' style='min-width:80px;'>${document.getElementById('fiat_trans').innerHTML}</select>`;
-            paymentMethodCell.innerHTML = `<select id='${selectId}' class='form-select form-select-sm' style='min-width:100px;'><option>Cargando...</option></select>`;
-            buyAmountCell.innerHTML = `<input type='number' class='form-control form-control-sm' value='${parseFloat(buyAmountCell.textContent).toFixed(2)}' style='width:110px;display:inline-block;' step='any'>`;
-            sellAmountCell.innerHTML = `<input type='number' class='form-control form-control-sm' value='${parseFloat(sellAmountCell.textContent).toFixed(2)}' style='width:110px;display:inline-block;' step='any'>`;
-            let commissionVal = commissionCell.textContent.split("(")[0].trim();
-            commissionCell.innerHTML = `<input type='number' class='form-control form-control-sm' value='${parseFloat(commissionVal).toFixed(2)}' style='width:90px;display:inline-block;' step='any'>`;
-
-            // Seleccionar valores actuales en los selects
-            setTimeout(() => {
-                let cryptoSelect = cryptoCell.querySelector('select');
-                let fiatSelect = fiatCell.querySelector('select');
-                if (cryptoSelect && currentCrypto) cryptoSelect.value = currentCrypto;
-                if (fiatSelect && currentFiat) fiatSelect.value = currentFiat;
-                // Función para actualizar métodos de pago según cripto y fiat
-                function updateRowPaymentMethods() {
-                    let asset = cryptoCell.querySelector('select').value;
-                    let fiat = fiatCell.querySelector('select').value;
-                    let $payType = $(paymentMethodCell).find('select');
-                    $payType.empty();
-                    $payType.append('<option>Cargando...</option>');
-                    $.ajax({
-                        url: '/api/payment_methods',
-                        method: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify({ asset: asset, fiat: fiat }),
-                        success: function(res) {
-                            $payType.empty();
-                            $payType.append('<option value="">Todos</option>');
-                            if (res.payment_methods && res.payment_methods.length > 0) {
-                                res.payment_methods.forEach(method => {
-                                    if (typeof method === 'object' && method.name) {
-                                        $payType.append(`<option value="${method.id}">${method.name}</option>`);
-                                    } else if (typeof method === 'string') {
-                                        $payType.append(`<option value="${method}">${method}</option>`);
-                                    }
-                                });
-                            } else {
-                                $payType.append('<option value="">No hay métodos disponibles</option>');
-                            }
-                            // Seleccionar el valor actual si existe
-                            if (currentPayment) {
-                                $payType.find('option').each(function() {
-                                    if ($(this).text() === currentPayment || $(this).val() === currentPayment) {
-                                        $(this).prop('selected', true);
-                                    }
-                                });
-                            }
-                        },
-                        error: function() {
-                            $payType.empty();
-                            $payType.append('<option value="">Error al cargar métodos</option>');
-                        }
-                    });
-                }
-                // Inicializar métodos de pago
-                updateRowPaymentMethods();
-                // Al cambiar cripto o fiat en la fila, actualizar métodos de pago
-                $(cryptoCell).find('select').on('change', updateRowPaymentMethods);
-                $(fiatCell).find('select').on('change', updateRowPaymentMethods);
-            }, 10);
-        } else {
-            cryptoCell.textContent = cryptoCell.querySelector('select').value;
-            fiatCell.textContent = fiatCell.querySelector('select').value;
-            let select = paymentMethodCell.querySelector('select');
-            paymentMethodCell.textContent = select ? select.options[select.selectedIndex].text : '';
-            const buyAmount = parseFloat(buyAmountCell.querySelector('input').value) || 0;
-            const sellAmount = parseFloat(sellAmountCell.querySelector('input').value) || 0;
-            const commission = parseFloat(commissionCell.querySelector('input').value) || 0;
-            buyAmountCell.textContent = buyAmount.toFixed(2);
-            sellAmountCell.textContent = sellAmount.toFixed(2);
+            // Ganancia bruta
             const grossProfit = sellAmount - buyAmount;
+            // Ganancia neta descontando comisión proporcional
             const netProfit = grossProfit - commission;
+            // Porcentaje de comisión sobre la ganancia bruta
             let commissionPct = grossProfit !== 0 ? (commission / grossProfit) * 100 : 0;
-            commissionCell.innerHTML = `${commission.toFixed(2)}<br><span class='text-muted' style='font-size:0.8em;'>(${commissionPct.toFixed(2)}%)</span>`;
-            profitCell.textContent = netProfit.toFixed(2);
-        }
 
-        cells.forEach(cell => {
-            if (cell !== cells[cells.length - 1]) {
-                cell.contentEditable = !isEditable;
+            const table = document.getElementById('transaction-table').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+
+            newRow.innerHTML = `
+                <td contenteditable="false">${crypto}</td>
+                <td contenteditable="false">${fiat}</td>
+                <td contenteditable="false">${paymentMethod}</td>
+                <td contenteditable="false">${buyAmount.toFixed(2)}</td>
+                <td contenteditable="false">${sellAmount.toFixed(2)}</td>
+                <td contenteditable="false">${commission.toFixed(2)}<br><span class='text-muted' style='font-size:0.8em;'>(${commissionPct.toFixed(2)}%)</span></td>
+                <td contenteditable="false">${netProfit.toFixed(2)}</td>
+                <td>
+                    <button class="edit-btn btn btn-sm btn-warning">Editar</button>
+                    <button class="delete-btn btn btn-sm btn-danger">Borrar</button>
+                </td>
+            `;
+
+            // Generar un id único para el select de método de pago en la fila
+            let rowId = Math.floor(Math.random() * 1000000);
+
+            newRow.querySelector('.edit-btn').addEventListener('click', function() {
+                const cells = newRow.querySelectorAll('td');
+                const isEditable = cells[0].contentEditable === "true";
+                const cryptoCell = cells[0];
+                const fiatCell = cells[1];
+                const paymentMethodCell = cells[2];
+                const buyAmountCell = cells[3];
+                const sellAmountCell = cells[4];
+                const commissionCell = cells[5];
+                const profitCell = cells[6];
+
+                if (!isEditable) {
+                    // Guardar valores actuales
+                    let currentCrypto = cryptoCell.textContent.trim();
+                    let currentFiat = fiatCell.textContent.trim();
+                    let currentPayment = paymentMethodCell.textContent.trim();
+                    let selectId = `payment-method-trans${rowId}`;
+
+                    // Renderizar selects
+                    cryptoCell.innerHTML = `<select class='form-select form-select-sm' style='min-width:80px;'>${document.getElementById('crypto_trans').innerHTML}</select>`;
+                    fiatCell.innerHTML = `<select class='form-select form-select-sm' style='min-width:80px;'>${document.getElementById('fiat_trans').innerHTML}</select>`;
+                    paymentMethodCell.innerHTML = `<select id='${selectId}' class='form-select form-select-sm' style='min-width:100px;'><option>Cargando...</option></select>`;
+                    buyAmountCell.innerHTML = `<input type='number' class='form-control form-control-sm' value='${parseFloat(buyAmountCell.textContent).toFixed(2)}' style='width:110px;display:inline-block;' step='any'>`;
+                    sellAmountCell.innerHTML = `<input type='number' class='form-control form-control-sm' value='${parseFloat(sellAmountCell.textContent).toFixed(2)}' style='width:110px;display:inline-block;' step='any'>`;
+                    let commissionVal = commissionCell.textContent.split("(")[0].trim();
+                    commissionCell.innerHTML = `<input type='number' class='form-control form-control-sm' value='${parseFloat(commissionVal).toFixed(2)}' style='width:90px;display:inline-block;' step='any'>`;
+
+                    // Seleccionar valores actuales en los selects
+                    setTimeout(() => {
+                        let cryptoSelect = cryptoCell.querySelector('select');
+                        let fiatSelect = fiatCell.querySelector('select');
+                        if (cryptoSelect && currentCrypto) cryptoSelect.value = currentCrypto;
+                        if (fiatSelect && currentFiat) fiatSelect.value = currentFiat;
+                        // Función para actualizar métodos de pago según cripto y fiat
+                        function updateRowPaymentMethods() {
+                            let asset = cryptoCell.querySelector('select').value;
+                            let fiat = fiatCell.querySelector('select').value;
+                            let $payType = $(paymentMethodCell).find('select');
+                            $payType.empty();
+                            $payType.append('<option>Cargando...</option>');
+                            $.ajax({
+                                url: '/api/payment_methods',
+                                method: 'POST',
+                                contentType: 'application/json',
+                                data: JSON.stringify({ asset: asset, fiat: fiat }),
+                                success: function(res) {
+                                    $payType.empty();
+                                    $payType.append('<option value="">Todos</option>');
+                                    if (res.payment_methods && res.payment_methods.length > 0) {
+                                        res.payment_methods.forEach(method => {
+                                            if (typeof method === 'object' && method.name) {
+                                                $payType.append(`<option value="${method.id}">${method.name}</option>`);
+                                            } else if (typeof method === 'string') {
+                                                $payType.append(`<option value="${method}">${method}</option>`);
+                                            }
+                                        });
+                                    } else {
+                                        $payType.append('<option value="">No hay métodos disponibles</option>');
+                                    }
+                                    // Seleccionar el valor actual si existe
+                                    if (currentPayment) {
+                                        $payType.find('option').each(function() {
+                                            if ($(this).text() === currentPayment || $(this).val() === currentPayment) {
+                                                $(this).prop('selected', true);
+                                            }
+                                        });
+                                    }
+                                },
+                                error: function() {
+                                    $payType.empty();
+                                    $payType.append('<option value="">Error al cargar métodos</option>');
+                                }
+                            });
+                        }
+                        // Inicializar métodos de pago
+                        updateRowPaymentMethods();
+                        // Al cambiar cripto o fiat en la fila, actualizar métodos de pago
+                        $(cryptoCell).find('select').on('change', updateRowPaymentMethods);
+                        $(fiatCell).find('select').on('change', updateRowPaymentMethods);
+                    }, 10);
+                } else {
+                    cryptoCell.textContent = cryptoCell.querySelector('select').value;
+                    fiatCell.textContent = fiatCell.querySelector('select').value;
+                    let select = paymentMethodCell.querySelector('select');
+                    paymentMethodCell.textContent = select ? select.options[select.selectedIndex].text : '';
+                    const buyAmount = parseFloat(buyAmountCell.querySelector('input').value) || 0;
+                    const sellAmount = parseFloat(sellAmountCell.querySelector('input').value) || 0;
+                    const commission = parseFloat(commissionCell.querySelector('input').value) || 0;
+                    buyAmountCell.textContent = buyAmount.toFixed(2);
+                    sellAmountCell.textContent = sellAmount.toFixed(2);
+                    const grossProfit = sellAmount - buyAmount;
+                    const netProfit = grossProfit - commission;
+                    let commissionPct = grossProfit !== 0 ? (commission / grossProfit) * 100 : 0;
+                    commissionCell.innerHTML = `${commission.toFixed(2)}<br><span class='text-muted' style='font-size:0.8em;'>(${commissionPct.toFixed(2)}%)</span>`;
+                    profitCell.textContent = netProfit.toFixed(2);
+                }
+
+                cells.forEach(cell => {
+                    if (cell !== cells[cells.length - 1]) {
+                        cell.contentEditable = !isEditable;
+                    }
+                });
+                this.textContent = isEditable ? 'Editar' : 'Guardar';
+            });
+
+            newRow.querySelector('.delete-btn').addEventListener('click', function() {
+                table.deleteRow(newRow.rowIndex - 1);
+            });
+        });
+
+        // --- FORMULARIO DE TRANSACCIONES (ABAJO) ---
+        $('#crypto_trans, #fiat_trans').on('change', function() {
+            updatePaymentMethodsGeneric('#crypto_trans', '#fiat_trans', '#payment-method-trans');
+        });
+        // Inicializar al cargar
+        $(function() {
+            if ($('#crypto_trans').val() && $('#fiat_trans').val()) {
+                updatePaymentMethodsGeneric('#crypto_trans', '#fiat_trans', '#payment-method-trans');
             }
         });
-        this.textContent = isEditable ? 'Editar' : 'Guardar';
-    });
 
-    newRow.querySelector('.delete-btn').addEventListener('click', function() {
-        table.deleteRow(newRow.rowIndex - 1);
+        // Corregir el botón Borrar Todo para la tabla de transacciones
+        document.getElementById('clear-btn').addEventListener('click', function() {
+            const table = document.getElementById('transaction-table').getElementsByTagName('tbody')[0];
+            table.innerHTML = '';
+        });
     });
-});
-});
-</script>
+    </script>
 </body>
 </html>
