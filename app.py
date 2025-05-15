@@ -1,7 +1,19 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import requests
+import json
+import os
+from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)
+
+# Configuración de variables de entorno
+app.config.from_prefixed_env()
+
+# URL base para las APIs
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.binance.com')
+BINANCE_P2P_URL = f"{API_BASE_URL}/bapi/c2c/v2/friendly/c2c/adv/search"
 
 BINANCE_P2P_URL = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
 
@@ -19,7 +31,8 @@ def get_payment_methods(asset, fiat):
     }
     headers = {
         'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'X-MBX-APIKEY': os.getenv('BINANCE_API_KEY', '')
     }
     try:
         print(f"Solicitando métodos de pago para asset={asset}, fiat={fiat}")
