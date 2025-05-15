@@ -464,6 +464,7 @@
         </main>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
     // Opciones de métodos de pago para selects independientes en la tabla
     window.paymentsOptions = `<option value="">Todos</option>{% for p in payments %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}`;
@@ -1007,6 +1008,23 @@
         document.getElementById('clear-btn').addEventListener('click', function() {
             const table = document.getElementById('transaction-table').getElementsByTagName('tbody')[0];
             table.innerHTML = '';
+        });
+
+        document.getElementById('export-excel-btn').addEventListener('click', function() {
+            // Obtener la tabla
+            var table = document.getElementById('transaction-table');
+            // Clonar la tabla para manipularla sin afectar la original
+            var tableClone = table.cloneNode(true);
+            // Eliminar la última columna (Acciones) de cada fila
+            for (let row of tableClone.rows) {
+                if (row.cells.length > 0) {
+                    row.deleteCell(-1);
+                }
+            }
+            // Convertir la tabla clonada a una hoja de cálculo
+            var wb = XLSX.utils.table_to_book(tableClone, {sheet: "Transacciones"});
+            // Exportar el archivo Excel
+            XLSX.writeFile(wb, 'transacciones_arbitraje.xlsx');
         });
     });
     </script>
