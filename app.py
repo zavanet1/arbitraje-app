@@ -285,6 +285,7 @@ def calcular_arbitraje():
             sell_result = (None, None, None, None, None, None)
         buy_price, buy_methods, buy_nickname, buy_available, buy_min, buy_max = buy_result
         sell_price, sell_methods, sell_nickname, sell_available, sell_min, sell_max = sell_result
+<<<<<<< HEAD
         
         # Validar tipos de métodos de pago
         if not isinstance(buy_methods, list):
@@ -298,6 +299,8 @@ def calcular_arbitraje():
         buy_methods = [{'id': m, 'name': m} if isinstance(m, str) else m for m in buy_methods]
         sell_methods = [{'id': m, 'name': m} if isinstance(m, str) else m for m in sell_methods]
         
+=======
+>>>>>>> 97a9bcdfc40d02e0f854f439ebc007d7a64fd4b1
         if buy_price is None or sell_price is None:
             print("[ROBUSTEZ] No se pudieron obtener precios válidos (algún precio es None)")
             return jsonify({
@@ -307,12 +310,17 @@ def calcular_arbitraje():
         metodo_coincidente = None
         if pay_types:  # Usuario eligió método específico
             for metodo in pay_types:
+<<<<<<< HEAD
                 payment_method = metodo.lower()  # Normalizar a minúsculas
                 for pm in buy_methods:
                     if pm.get('id', '').lower() == payment_method:
                         metodo_coincidente = metodo
                         break
                 if metodo_coincidente:
+=======
+                if metodo in buy_methods and metodo in sell_methods:
+                    metodo_coincidente = metodo
+>>>>>>> 97a9bcdfc40d02e0f854f439ebc007d7a64fd4b1
                     break
             if not metodo_coincidente:
                 print(f"[ROBUSTEZ] No hay coincidencia de método de pago específico: {pay_types}")
@@ -408,6 +416,10 @@ def calcular_arbitraje():
             # usdt = VES_invertidos / buy_price
             # sell_price * (VES_invertidos / buy_price) * (1 - binance_fee) - VES_invertidos - (VES_invertidos * binance_fee) = VES_invertidos * pct_ganancia
             # sell_price * (VES_invertidos / buy_price) * (1 - binance_fee) = VES_invertidos + (VES_invertidos * binance_fee) + (VES_invertidos * pct_ganancia)
+<<<<<<< HEAD
+=======
+            # sell_price * (1 - binance_fee) / buy_price = 1 + binance_fee + pct_ganancia
+>>>>>>> 97a9bcdfc40d02e0f854f439ebc007d7a64fd4b1
             # buy_price = sell_price * (1 - binance_fee) / (1 + binance_fee + pct_ganancia)
             precio_compra_sugerido_usuario_max = sell_price * (1 - binance_fee) / (1 + binance_fee + pct_ganancia_min_deseada)
             precio_compra_sugerido_usuario_min = sell_price * (1 - binance_fee) / (1 + binance_fee + pct_ganancia_max_deseada)
