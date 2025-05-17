@@ -123,7 +123,7 @@
         
         [data-theme="dark"] .card {
             border: 1px solid rgba(160, 174, 192, 0.2);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
         .card-body {
             padding: 2.5rem;
@@ -978,7 +978,7 @@
 <div class="fw-bold">${res.buy_price} <span class="text-muted">${res.fiat}/${res.asset}</span></div>
 <div class="small d-flex flex-wrap gap-1" style="word-break: break-word; white-space: normal; overflow-wrap: anywhere;">
     Métodos:
-    ${Array.isArray(res.buy_methods) ? res.buy_methods.map(m => `<span class='badge bg-secondary mb-1'>${m}</span>`).join(' ') : ''}
+    ${(res.buy_methods || []).map(m => `<span class='badge bg-secondary me-1'>${m.name || m.tradeMethodName || m.identifier || m}</span>`).join(' ')}
 </div>
 <div class='small mt-1'>Disponible: <b>${res.buy_available || '-'}</b> ${res.asset}<br>Order Limit: <b>${res.buy_min || '-'} - ${res.buy_max || '-'}</b> ${res.fiat}</div>
                                     </div>
@@ -988,7 +988,7 @@
 <div class="fw-bold">${res.sell_price} <span class="text-muted">${res.fiat}/${res.asset}</span></div>
 <div class="small d-flex flex-wrap gap-1" style="word-break: break-word; white-space: normal; overflow-wrap: anywhere;">
     Métodos:
-    ${Array.isArray(res.sell_methods) ? res.sell_methods.map(m => `<span class='badge bg-secondary mb-1'>${m}</span>`).join(' ') : ''}
+    ${(res.sell_methods || []).map(m => `<span class='badge bg-secondary me-1'>${m.name || m.tradeMethodName || m.identifier || m}</span>`).join(' ')}
 </div>
 <div class='small mt-1'>Disponible: <b>${res.sell_available || '-'}</b> ${res.asset}<br>Order Limit: <b>${res.sell_min || '-'} - ${res.sell_max || '-'}</b> ${res.fiat}</div>
                                     </div>
@@ -1120,7 +1120,7 @@
                                     <div class='info-row'><b class="user-info-label">Usuario:</b> ${ad.nickname}</div>
                                     <div class='info-row'><b class="user-info-label">Precio:</b> <span class='price-value'>${ad.price} ${ad.fiat} / ${ad.asset}</span></div>
                                     ${diff}
-                                    <div class='info-row'><b class="user-info-label">Métodos:</b> ${(ad.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m}</span>`).join(' ')}</div>
+                                    <div class='info-row'><b class="user-info-label">Métodos:</b> ${(ad.methods || []).map(m => `<span class='badge bg-secondary me-1'>${m.name || m.tradeMethodName || m.identifier || m}</span>`).join(' ')}</div>
                                     <div class='info-row'><b class="user-info-label">Disponible:</b> <span class="amount-value">${ad.available} ${ad.asset}</span></div>
                                     <div class='info-row'><b class="user-info-label">Límite:</b> <span class="amount-value">${ad.min} - ${ad.max} ${ad.fiat}</span></div>
                                 </div>
@@ -1134,7 +1134,7 @@
                                     <div class='info-row'><b class="user-info-label">Posición:</b> <span class='badge bg-info'>1</span></div>
                                     <div class='info-row'><b class="user-info-label">Usuario:</b> ${res.anuncio_top.nickname}</div>
                                     <div class='info-row'><b class="user-info-label">Precio:</b> <span class='price-value'>${res.anuncio_top.price} ${res.anuncio_top.fiat} / ${res.anuncio_top.asset}</span></div>
-                                    <div class='info-row'><b class="user-info-label">Métodos:</b> ${(res.anuncio_top.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m}</span>`).join(' ')}</div>
+                                    <div class='info-row'><b class="user-info-label">Métodos:</b> ${(res.anuncio_top.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m.name || m.tradeMethodName || m.identifier || m}</span>`).join(' ')}</div>
                                     <div class='info-row'><b class="user-info-label">Disponible:</b> <span class="amount-value">${res.anuncio_top.available} ${res.anuncio_top.asset}</span></div>
                                     <div class='info-row'><b class="user-info-label">Límite:</b> <span class="amount-value">${res.anuncio_top.min} - ${res.anuncio_top.max} ${res.anuncio_top.fiat}</span></div>
                                 </div>
@@ -1149,7 +1149,7 @@
                                 <div class='info-row'><b class="user-info-label">Posición:</b> <span class='badge bg-info'>1</span></div>
                                 <div class='info-row'><b class="user-info-label">Usuario:</b> ${res.anuncio_top.nickname}</div>
                                 <div class='info-row'><b class="user-info-label">Precio:</b> <span class='price-value'>${res.anuncio_top.price} ${res.anuncio_top.fiat} / ${res.anuncio_top.asset}</span></div>
-                                <div class='info-row'><b class="user-info-label">Métodos:</b> ${(res.anuncio_top.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m}</span>`).join(' ')}</div>
+                                <div class='info-row'><b class="user-info-label">Métodos:</b> ${(res.anuncio_top.methods || []).map(m=>`<span class='badge bg-secondary me-1'>${m.name || m.tradeMethodName || m.identifier || m}</span>`).join(' ')}</div>
                                 <div class='info-row'><b class="user-info-label">Disponible:</b> <span class="amount-value">${res.anuncio_top.available} ${res.anuncio_top.asset}</span></div>
                                 <div class='info-row'><b class="user-info-label">Límite:</b> <span class="amount-value">${res.anuncio_top.min} - ${res.anuncio_top.max} ${res.anuncio_top.fiat}</span></div>
                             </div>`;
