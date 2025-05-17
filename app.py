@@ -51,15 +51,6 @@ def get_payment_methods(asset, fiat):
         # Devuelve lista de dicts: [{"id":..., "name":...}]
         result = [{"id": k, "name": v} for k, v in payment_methods.items()]
         print(f"Métodos de pago encontrados: {result}")
-        # Si no hay métodos, agrega también los nombres únicos encontrados (por compatibilidad)
-        if not result:
-            nombres = set()
-            for advert in data.get('data', []):
-                for method in advert.get('adv', {}).get('tradeMethods', []):
-                    nombre = method.get('tradeMethodName', '').strip()
-                    if nombre:
-                        nombres.add(nombre)
-            result = [{"id": n, "name": n} for n in nombres]
         return result
     except Exception as e:
         print(f"Error obteniendo métodos de pago: {e}")
@@ -401,7 +392,6 @@ def calcular_arbitraje():
             # Despejando buy_price:
             # usdt = VES_invertidos / buy_price
             # sell_price * (VES_invertidos / buy_price) * (1 - binance_fee) - VES_invertidos - (VES_invertidos * binance_fee) = VES_invertidos * pct_ganancia
-            # sell_price * (VES_invertidos / buy_price) * (1 - binance_fee) = VES_invertidos + (VES_invertidos * binance_fee) + (VES_invertidos * pct_ganancia)
             # sell_price * (1 - binance_fee) / buy_price = 1 + binance_fee + pct_ganancia
             # buy_price = sell_price * (1 - binance_fee) / (1 + binance_fee + pct_ganancia)
             precio_compra_sugerido_usuario_max = sell_price * (1 - binance_fee) / (1 + binance_fee + pct_ganancia_min_deseada)
@@ -517,7 +507,7 @@ def buscar_anuncio_usuario():
                             'price': adv.get('price'),
                             'asset': adv.get('asset'),
                             'fiat': adv.get('fiatUnit'),
-                            'methods': [m.get('tradeMethodName', '') for m in adv.get('tradeMethods', []) if isinstance(m, dict)],
+                            'methods': [method.get('tradeMethodName', '') for method in ad['adv']['tradeMethods']],
                             'available': adv.get('surplusAmount') or adv.get('availableQuantity') or adv.get('availableAmount') or '-',
                             'min': adv.get('minSingleTransAmount'),
                             'max': adv.get('maxSingleTransAmount'),
@@ -532,7 +522,7 @@ def buscar_anuncio_usuario():
                         'price': adv.get('price'),
                         'asset': adv.get('asset'),
                         'fiat': adv.get('fiatUnit'),
-                        'methods': [m.get('tradeMethodName', '') for m in adv.get('tradeMethods', []) if isinstance(m, dict)],
+                        'methods': [method.get('tradeMethodName', '') for method in ad['adv']['tradeMethods']],
                         'available': adv.get('surplusAmount') or adv.get('availableQuantity') or adv.get('availableAmount') or '-',
                         'min': adv.get('minSingleTransAmount'),
                         'max': adv.get('maxSingleTransAmount'),
