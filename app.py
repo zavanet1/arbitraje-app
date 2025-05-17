@@ -187,6 +187,12 @@ def index():
     fiats = ['USD', 'VES', 'ARS', 'EUR']
     return render_template('index.html', cryptos=cryptos, payments=payments, fiats=fiats)
 
+@app.route('/calculadora')
+def calculadora():
+    cryptos = SUPPORTED_CRYPTOS
+    fiats = ['USD', 'VES', 'ARS', 'EUR']
+    return render_template('calculadora.html', cryptos=cryptos, fiats=fiats)
+
 # Cambia api_payment_methods para devolver lista de métodos con id y nombre
 @app.route('/api/payment_methods', methods=['POST'])
 def api_payment_methods():
@@ -582,6 +588,60 @@ def api_best_prices():
         'sell_method': sell_method,
         'gain': gain
     })
+
+@app.route('/api/quick_price', methods=['POST'])
+def quick_price():
+    """Endpoint rápido que devuelve solo el primer precio encontrado sin buscar en múltiples páginas"""
+    data = request.json
+    asset = data.get('asset', 'USDT')
+    fiat = data.get('fiat', 'USD')
+    trade_type = data.get('trade_type', 'BUY')
+    
+    # URL para la API de Binance P2P
+    url = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
+    
+    # Payload básico para la solicitud
+    payload = {
+        "asset": asset,
+        "fiat": fiat,
+        "merchantCheck": False,
+        "page": 1,
+        "rows": 10,
+        "tradeType": trade_type
+    }
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Buscar el primer anuncio válido
+        if 'data' in data and isinstance(data['data'], list) and len(data['data']) > 0:
+            for ad in data['data']:
+                if 'adv' in ad and 'price' in ad['adv']:
+                    price = float(ad['adv']['price'])
+                    return jsonify({
+                        'price': price,
+                        'asset': asset,
+                        'fiat': fiat,
+                        'trade_type': trade_type
+                    })
+        
+        return jsonify({
+            'error': 'No se encontraron anuncios disponibles',
+            'price': None
+        }), 404
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'Error al obtener precio: {str(e)}',
+            'price': None
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

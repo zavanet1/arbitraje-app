@@ -576,6 +576,9 @@
             </div>
             <h1 class="display-5 fw-bold text-primary">Arbitraje P2P</h1>
             <p class="lead text-muted">Plataforma profesional de análisis de mercados</p>
+            <div class="mt-3">
+                <a href="/calculadora" class="btn btn-outline-primary">Calculadora de Criptomonedas</a>
+            </div>
         </header>
 
         <main>
@@ -621,6 +624,54 @@
                         </form>
                         <div style="margin-top: 2rem;"></div>
                         <div id="resultado-arbitraje" class="mt-3"></div>
+                    </div>
+                    
+                    <!-- Calculadora de Criptomonedas -->
+                    <div class="card p-4 mt-5">
+                        <h4 class="mb-3">Calculadora de Criptomonedas</h4>
+                        <div class="row g-3 align-items-center mb-4">
+                            <div class="col-auto">
+                                <label class="form-label">Criptomoneda</label>
+                                <select class="form-select form-select-sm" id="calc-crypto">
+                                    {% for c in cryptos %}
+                                    <option value="{{c}}">{{c}}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Moneda Fiat</label>
+                                <select class="form-select form-select-sm" id="calc-fiat">
+                                    {% for f in fiats %}
+                                    <option value="{{f}}">{{f}}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Cantidad</label>
+                                <input type="number" class="form-control" id="calc-cantidad" value="100" min="0.01" step="any">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Dirección</label>
+                                <select class="form-select form-select-sm" id="calc-direccion">
+                                    <option value="crypto-to-fiat">Cripto → Fiat</option>
+                                    <option value="fiat-to-crypto">Fiat → Cripto</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Plataforma</label>
+                                <select class="form-select form-select-sm" id="calc-plataforma">
+                                    <option value="binance">Binance</option>
+                                    <option value="localbitcoins">LocalBitcoins</option>
+                                    <option value="paxful">Paxful</option>
+                                    <option value="airtm">AirTM</option>
+                                    <option value="reserve">Reserve</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-center">
+                            <button id="calc-btn" class="btn btn-primary btn-sm" type="button">Calcular</button>
+                        </div>
+                        <div id="calc-resultado" class="mt-4"></div>
                     </div>
 
                     <div class="card p-4 mt-5">
@@ -809,6 +860,250 @@
         
         // Configurar el botón de cambio de tema
         document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    });
+    </script>
+    
+    <script>
+    /**
+     * Calculadora de Criptomonedas para CriptoRentable.net
+     * Esta calculadora permite realizar conversiones entre criptomonedas y monedas fiat,
+     * calcular ganancias potenciales y estimar comisiones.
+     */
+    class CriptoCalculadora {
+        constructor() {
+            this.tasas = {};
+            this.comisiones = {
+                'binance': 0.002, // 0.2%
+                'localbitcoins': 0.01, // 1%
+                'paxful': 0.02, // 2%
+                'airtm': 0.03, // 3%
+                'reserve': 0.015 // 1.5%
+            };
+            this.inicializar();
+        }
+
+        inicializar() {
+            this.cargarElementos();
+            this.configurarEventos();
+            this.actualizarTasas();
+        }
+
+        cargarElementos() {
+            // Obtener referencias a los elementos del DOM
+            this.cryptoSelect = document.getElementById('calc-crypto');
+            this.fiatSelect = document.getElementById('calc-fiat');
+            this.cantidadInput = document.getElementById('calc-cantidad');
+            this.direccionSelect = document.getElementById('calc-direccion');
+            this.plataformaSelect = document.getElementById('calc-plataforma');
+            this.resultadoDiv = document.getElementById('calc-resultado');
+            this.calcularBtn = document.getElementById('calc-btn');
+            
+            // Mostrar mensaje de carga inicial
+            this.resultadoDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Seleccione una criptomoneda y moneda fiat para obtener la tasa actual de Binance.
+                </div>
+            `;
+        }
+
+        configurarEventos() {
+            // Configurar evento de clic para el botón calcular
+            this.calcularBtn.addEventListener('click', () => this.actualizarTasas());
+            
+            // Actualizar tasas cuando cambia la criptomoneda o la moneda fiat
+            this.cryptoSelect.addEventListener('change', () => this.actualizarTasas());
+            this.fiatSelect.addEventListener('change', () => this.actualizarTasas());
+            
+            // Calcular automáticamente cuando cambia la dirección o plataforma
+            this.direccionSelect.addEventListener('change', () => this.calcular());
+            this.plataformaSelect.addEventListener('change', () => this.calcular());
+            
+            // Calcular al presionar Enter en el campo de cantidad
+            this.cantidadInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.calcular();
+                }
+            });
+        }
+
+        actualizarTasas() {
+            const crypto = this.cryptoSelect.value;
+            const fiat = this.fiatSelect.value;
+            
+            if (!crypto || !fiat) {
+                return;
+            }
+            
+            // Mostrar mensaje de carga
+            this.resultadoDiv.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">Obteniendo tasa actual de Binance...</div>
+                </div>
+            `;
+            
+            // Obtener la tasa actual desde la API
+            this.obtenerTasaBinance(crypto, fiat)
+                .then(tasa => {
+                    if (!this.tasas[crypto]) {
+                        this.tasas[crypto] = {};
+                    }
+                    this.tasas[crypto][fiat] = tasa;
+                    
+                    // Mostrar la tasa obtenida
+                    this.resultadoDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> Tasa actual obtenida: 1 ${crypto} = ${tasa.toFixed(2)} ${fiat}
+                        </div>
+                    `;
+                    
+                    // Calcular automáticamente con la nueva tasa
+                    this.calcular();
+                })
+                .catch(error => {
+                    console.error('Error al obtener tasa:', error);
+                    this.resultadoDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Error al obtener la tasa actual. ${error.message}
+                        </div>
+                    `;
+                });
+        }
+        
+        obtenerTasaBinance(crypto, fiat) {
+            return new Promise((resolve, reject) => {
+                // Usar el nuevo endpoint rápido para obtener el precio
+                $.ajax({
+                    url: "/api/quick_price",
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ 
+                        asset: crypto, 
+                        fiat: fiat,
+                        trade_type: "BUY"
+                    }),
+                    success: function(res) {
+                        if (res.price) {
+                            resolve(parseFloat(res.price));
+                        } else {
+                            reject(new Error('No se pudo obtener el precio de compra'));
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        reject(new Error('Error en la solicitud a la API'));
+                    }
+                });
+            });
+        }
+
+        calcular() {
+            const crypto = this.cryptoSelect.value;
+            const fiat = this.fiatSelect.value;
+            const cantidad = parseFloat(this.cantidadInput.value);
+            const direccion = this.direccionSelect.value;
+            const plataforma = this.plataformaSelect.value;
+            
+            if (isNaN(cantidad) || cantidad <= 0) {
+                this.mostrarError('Por favor, ingrese una cantidad válida mayor que cero.');
+                return;
+            }
+            
+            // Verificar si tenemos la tasa para esta combinación
+            if (!this.tasas[crypto] || !this.tasas[crypto][fiat]) {
+                // Si no tenemos la tasa, intentar obtenerla primero
+                this.actualizarTasas();
+                return;
+            }
+            
+            const tasa = this.tasas[crypto][fiat];
+            const comision = this.comisiones[plataforma] || 0;
+            
+            let resultado, comisionMonto, montoFinal;
+            
+            if (direccion === 'crypto-to-fiat') {
+                // Convertir de cripto a fiat
+                resultado = cantidad * tasa;
+                comisionMonto = resultado * comision;
+                montoFinal = resultado - comisionMonto;
+                
+                this.mostrarResultado(
+                    `<div class="card shadow border-primary mb-4" style="max-width:500px;margin:auto;">
+                        <div class="card-header bg-gradient bg-primary text-white text-center h5">
+                            <i class="bi bi-calculator"></i> Resultado de la Conversión
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-12 text-center">
+                                    <h4>${cantidad} ${crypto} = ${resultado.toFixed(2)} ${fiat}</h4>
+                                    <div class="text-muted">Tasa actual de Binance: 1 ${crypto} = ${tasa.toFixed(2)} ${fiat}</div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="fw-bold">Comisión (${(comision*100).toFixed(1)}%):</div>
+                                    <div class="text-danger">${comisionMonto.toFixed(2)} ${fiat}</div>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <div class="fw-bold">Monto final:</div>
+                                    <div class="h4 text-success">${montoFinal.toFixed(2)} ${fiat}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`
+                );
+            } else {
+                // Convertir de fiat a cripto
+                resultado = cantidad / tasa;
+                comisionMonto = resultado * comision;
+                montoFinal = resultado - comisionMonto;
+                
+                this.mostrarResultado(
+                    `<div class="card shadow border-primary mb-4" style="max-width:500px;margin:auto;">
+                        <div class="card-header bg-gradient bg-primary text-white text-center h5">
+                            <i class="bi bi-calculator"></i> Resultado de la Conversión
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-12 text-center">
+                                    <h4>${cantidad} ${fiat} = ${resultado.toFixed(8)} ${crypto}</h4>
+                                    <div class="text-muted">Tasa actual de Binance: 1 ${crypto} = ${tasa.toFixed(2)} ${fiat}</div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="fw-bold">Comisión (${(comision*100).toFixed(1)}%):</div>
+                                    <div class="text-danger">${comisionMonto.toFixed(8)} ${crypto}</div>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <div class="fw-bold">Monto final:</div>
+                                    <div class="h4 text-success">${montoFinal.toFixed(8)} ${crypto}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`
+                );
+            }
+        }
+
+        mostrarResultado(html) {
+            this.resultadoDiv.innerHTML = html;
+        }
+
+        mostrarError(mensaje) {
+            this.resultadoDiv.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i> ${mensaje}
+                </div>
+            `;
+        }
+    }
+
+    // Inicializar la calculadora cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', () => {
+        const calculadora = new CriptoCalculadora();
     });
     </script>
     <script>

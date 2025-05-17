@@ -114,6 +114,10 @@
             <label for="commission">Comisión</label>
             <input type="text" id="commission" placeholder="Ingrese la comisión">
         </div>
+        <div class="form-group">
+            <label for="fiat-amount">Importe Fiat</label>
+            <input type="text" id="fiat-amount" placeholder="Ingrese el importe fiat">
+        </div>
         <button id="add-btn">Agregar</button>
         <button id="clear-btn">Borrar Todo</button>
 
@@ -126,6 +130,7 @@
                     <th>Monto de Compra</th>
                     <th>Monto de Venta</th>
                     <th>Comisión</th>
+                    <th>Importe Fiat</th>
                 </tr>
             </thead>
             <tbody>
@@ -142,6 +147,7 @@
             const buyAmount = document.getElementById('buy-amount').value;
             const sellAmount = document.getElementById('sell-amount').value;
             const commission = document.getElementById('commission').value;
+            const fiatAmount = document.getElementById('fiat-amount').value;
 
             const table = document.getElementById('transaction-table').getElementsByTagName('tbody')[0];
             const newRow = table.insertRow();
@@ -153,6 +159,7 @@
                 <td>${buyAmount}</td>
                 <td>${sellAmount}</td>
                 <td>${commission}</td>
+                <td>${fiatAmount}</td>
             `;
         });
 
@@ -162,4 +169,4 @@
         });
     </script>
 </body>
-</html> 
+</html>
